@@ -6,7 +6,7 @@ try {
     data: {
       name: "Existing Cloud Platform",
       slug: `existing-cloud-${Date.now()}`,
-      shortDescription: "Original description",
+      short_description: "Original description",
       status: "ACTIVE",
     },
   });
@@ -14,7 +14,7 @@ try {
   // 2. Create an import batch
   const batch = await prisma.importBatch.create({
     data: {
-      totalUrls: 1,
+      total_urls: 1,
     },
   });
 
@@ -23,11 +23,11 @@ try {
     data: {
       url: "https://example.com/cloud-platform",
       status: "SUCCESS",
-      batchId: batch.id,
-      productId: product.id,
-      extractedData: {
+      batch_id: batch.id,
+      product_id: product.id,
+      extracted_data: {
         name: "Existing Cloud Platform",
-        shortDescription: "Updated description",
+        short_description: "Updated description",
       },
     },
   });
@@ -35,10 +35,10 @@ try {
   // 4. Save the newly extracted information as a proposal
   const proposal = await prisma.productUpdateProposal.create({
     data: {
-      productId: product.id,
-      importRecordId: importRecord.id,
-      proposedData: {
-        shortDescription: "Updated description",
+      product_id: product.id,
+      import_record_id: importRecord.id,
+      proposed_data: {
+        short_description: "Updated description",
       },
     },
   });
@@ -52,9 +52,9 @@ try {
     },
   });
 
-  console.log("Original description:", savedProduct.shortDescription);
+  console.log("Original description:", savedProduct.short_description);
 
-  console.log("Proposed description:", proposal.proposedData.shortDescription);
+  console.log("Proposed description:", proposal.proposed_data.short_description);
 } catch (error) {
   console.error("Proposal test failed:", error);
 } finally {

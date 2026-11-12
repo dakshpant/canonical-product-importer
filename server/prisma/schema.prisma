@@ -8,55 +8,58 @@ datasource db {
     provider = "sqlite"
 }
 
+// Field names follow the canonical product schema exactly (snake_case),
+// so records map one-to-one onto the marketplace model.
+
 // Product Model
 
 model Product {
     // Identity
-    id          String  @id @default(cuid())
-    name        String
-    skuId       String? @unique
-    slug        String  @unique
-    productKind String?
+    id           String  @id @default(cuid())
+    name         String
+    sku_id       String? @unique
+    slug         String  @unique
+    product_kind String?
 
     // Categorization
-    category    String?
-    industry    String?
-    subCategory String?
+    category     String?
+    industry     String?
+    sub_category String?
 
     // Description
-    tagline          String?
-    shortDescription String?
-    overview         String?
+    tagline           String?
+    short_description String?
+    overview          String?
 
     // Product details
-    website       String?
-    unitOfMeasure String?
-    minQuantity   Float?
-    maxQuantity   Float?
+    website         String?
+    unit_of_measure String?
+    min_quantity    Float?
+    max_quantity    Float?
 
     // Image information
-    imageUrl        String?
-    imageAlt        String?
-    imageType       String?
-    imageSourcePage String?
+    image_url         String?
+    image_alt         String?
+    image_type        String?
+    image_source_page String?
 
     // Collections
-    tags            Json?
-    skills          Json?
-    features        Json?
-    deployments     Json?
-    platforms       Json?
-    targetCustomers Json?
+    tags             Json?
+    skills           Json?
+    features         Json?
+    deployments      Json?
+    platforms        Json?
+    target_customers Json?
 
     // Approval lifecycle
     status String @default("DRAFT")
 
     // Timestamps
-    createdAt       DateTime                @default(now())
-    updatedAt       DateTime                @updatedAt
-    importRecords   ImportRecord[]
-    updateProposals ProductUpdateProposal[]
-    sources         ProductSource[]
+    created_at       DateTime                @default(now())
+    updated_at       DateTime                @updatedAt
+    import_records   ImportRecord[]
+    update_proposals ProductUpdateProposal[]
+    sources          ProductSource[]
 
     @@index([status])
     @@index([category])
@@ -67,14 +70,14 @@ model ImportBatch {
     id     String @id @default(cuid())
     status String @default("PENDING")
 
-    totalUrls     Int
-    completedUrls Int @default(0)
-    failedUrls    Int @default(0)
+    total_urls     Int
+    completed_urls Int @default(0)
+    failed_urls    Int @default(0)
 
     records ImportRecord[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    created_at DateTime @default(now())
+    updated_at DateTime @updatedAt
 
     @@index([status])
 }
@@ -84,51 +87,51 @@ model ImportRecord {
     url    String
     status String @default("PENDING")
 
-    extractedData Json?
-    errorMessage  String?
-    attempts      Int     @default(0)
+    extracted_data Json?
+    error_message  String?
+    attempts       Int     @default(0)
 
-    batchId String
-    batch   ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+    batch_id String
+    batch    ImportBatch @relation(fields: [batch_id], references: [id], onDelete: Cascade)
 
-    productId String?
-    product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+    product_id String?
+    product    Product? @relation(fields: [product_id], references: [id], onDelete: SetNull)
 
-    createdAt      DateTime               @default(now())
-    updatedAt      DateTime               @updatedAt
-    updateProposal ProductUpdateProposal?
-    sources        ProductSource[]
+    created_at      DateTime               @default(now())
+    updated_at      DateTime               @updatedAt
+    update_proposal ProductUpdateProposal?
+    sources         ProductSource[]
 
-    @@index([batchId])
+    @@index([batch_id])
     @@index([status])
-    @@index([productId])
+    @@index([product_id])
 }
 
 model ProductUpdateProposal {
     id String @id @default(cuid())
 
     // Existing product being refreshed
-    productId String
-    product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+    product_id String
+    product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
     // Import that generated this proposal
-    importRecordId String       @unique
-    importRecord   ImportRecord @relation(fields: [importRecordId], references: [id], onDelete: Cascade)
+    import_record_id String       @unique
+    import_record    ImportRecord @relation(fields: [import_record_id], references: [id], onDelete: Cascade)
 
     // Newly extracted product information
-    proposedData Json
+    proposed_data Json
 
     // Field-level review decisions
-    reviewedFields Json?
+    reviewed_fields Json?
 
     // Overall review status
-    status     String    @default("PENDING")
-    reviewedAt DateTime?
+    status      String    @default("PENDING")
+    reviewed_at DateTime?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    created_at DateTime @default(now())
+    updated_at DateTime @updatedAt
 
-    @@index([productId])
+    @@index([product_id])
     @@index([status])
 }
 
@@ -136,31 +139,31 @@ model ProductSource {
     id String @id @default(cuid())
 
     // The product this evidence supports (optional initially)
-    productId String?
-    product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+    product_id String?
+    product    Product? @relation(fields: [product_id], references: [id], onDelete: SetNull)
 
     // The import attempt that collected this evidence
-    importRecordId String
-    importRecord   ImportRecord @relation(fields: [importRecordId], references: [id], onDelete: Cascade)
+    import_record_id String
+    import_record    ImportRecord @relation(fields: [import_record_id], references: [id], onDelete: Cascade)
 
     // Which canonical field does this evidence support?
-    fieldName String
+    field_name String
 
     // Exact extracted value, supporting strings, arrays, or objects
-    extractedValue Json?
+    extracted_value Json?
 
     // Supporting text from the original webpage
-    evidenceText String?
+    evidence_text String?
 
     // How the information was found
-    sourceType String?
+    source_type String?
 
     // Actual URL where the evidence was found
-    sourceUrl String
+    source_url String
 
-    createdAt DateTime @default(now())
+    created_at DateTime @default(now())
 
-    @@index([productId])
-    @@index([importRecordId])
-    @@index([fieldName])
+    @@index([product_id])
+    @@index([import_record_id])
+    @@index([field_name])
 }

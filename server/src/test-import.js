@@ -4,9 +4,9 @@ try {
   // Create one batch containing two URL records
   const batch = await prisma.importBatch.create({
     data: {
-      totalUrls: 2,
-      completedUrls: 1,
-      failedUrls: 1,
+      total_urls: 2,
+      completed_urls: 1,
+      failed_urls: 1,
       status: "PARTIAL",
 
       records: {
@@ -14,7 +14,7 @@ try {
           {
             url: "https://example.com/product-a",
             status: "SUCCESS",
-            extractedData: {
+            extracted_data: {
               name: "Product A",
               website: "https://example.com",
             },
@@ -22,7 +22,7 @@ try {
           {
             url: "https://example.com/product-b",
             status: "FAILED",
-            errorMessage: "Unable to extract product information",
+            error_message: "Unable to extract product information",
           },
         ],
       },

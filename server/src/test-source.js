@@ -10,13 +10,13 @@ async function main() {
 
   const source = await prisma.productSource.create({
     data: {
-      productId: product.id,
-      importRecordId: importRecord.id,
-      fieldName: "tagline",
-      extractedValue: "Simplify your cloud operations",
-      evidenceText: "Our platform simplifies cloud operations.",
-      sourceType: "META_DESCRIPTION",
-      sourceUrl: "https://example.com/products/cloud-platform",
+      product_id: product.id,
+      import_record_id: importRecord.id,
+      field_name: "tagline",
+      extracted_value: "Simplify your cloud operations",
+      evidence_text: "Our platform simplifies cloud operations.",
+      source_type: "META_DESCRIPTION",
+      source_url: "https://example.com/products/cloud-platform",
     },
   });
 
