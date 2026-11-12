@@ -1,0 +1,166 @@
+generator client {
+    provider     = "prisma-client"
+    output       = "../generated/prisma"
+    moduleFormat = "esm"
+}
+
+datasource db {
+    provider = "sqlite"
+}
+
+// Product Model
+
+model Product {
+    // Identity
+    id          String  @id @default(cuid())
+    name        String
+    skuId       String? @unique
+    slug        String  @unique
+    productKind String?
+
+    // Categorization
+    category    String?
+    industry    String?
+    subCategory String?
+
+    // Description
+    tagline          String?
+    shortDescription String?
+    overview         String?
+
+    // Product details
+    website       String?
+    unitOfMeasure String?
+    minQuantity   Float?
+    maxQuantity   Float?
+
+    // Image information
+    imageUrl        String?
+    imageAlt        String?
+    imageType       String?
+    imageSourcePage String?
+
+    // Collections
+    tags            Json?
+    skills          Json?
+    features        Json?
+    deployments     Json?
+    platforms       Json?
+    targetCustomers Json?
+
+    // Approval lifecycle
+    status String @default("DRAFT")
+
+    // Timestamps
+    createdAt       DateTime                @default(now())
+    updatedAt       DateTime                @updatedAt
+    importRecords   ImportRecord[]
+    updateProposals ProductUpdateProposal[]
+    sources         ProductSource[]
+
+    @@index([status])
+    @@index([category])
+}
+
+//Import Batch and Record Models
+model ImportBatch {
+    id     String @id @default(cuid())
+    status String @default("PENDING")
+
+    totalUrls     Int
+    completedUrls Int @default(0)
+    failedUrls    Int @default(0)
+
+    records ImportRecord[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([status])
+}
+
+model ImportRecord {
+    id     String @id @default(cuid())
+    url    String
+    status String @default("PENDING")
+
+    extractedData Json?
+    errorMessage  String?
+    attempts      Int     @default(0)
+
+    batchId String
+    batch   ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+    productId String?
+    product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+    createdAt      DateTime               @default(now())
+    updatedAt      DateTime               @updatedAt
+    updateProposal ProductUpdateProposal?
+    sources        ProductSource[]
+
+    @@index([batchId])
+    @@index([status])
+    @@index([productId])
+}
+
+model ProductUpdateProposal {
+    id String @id @default(cuid())
+
+    // Existing product being refreshed
+    productId String
+    product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+    // Import that generated this proposal
+    importRecordId String       @unique
+    importRecord   ImportRecord @relation(fields: [importRecordId], references: [id], onDelete: Cascade)
+
+    // Newly extracted product information
+    proposedData Json
+
+    // Field-level review decisions
+    reviewedFields Json?
+
+    // Overall review status
+    status     String    @default("PENDING")
+    reviewedAt DateTime?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([productId])
+    @@index([status])
+}
+
+model ProductSource {
+    id String @id @default(cuid())
+
+    // The product this evidence supports (optional initially)
+    productId String?
+    product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+    // The import attempt that collected this evidence
+    importRecordId String
+    importRecord   ImportRecord @relation(fields: [importRecordId], references: [id], onDelete: Cascade)
+
+    // Which canonical field does this evidence support?
+    fieldName String
+
+    // Exact extracted value, supporting strings, arrays, or objects
+    extractedValue Json?
+
+    // Supporting text from the original webpage
+    evidenceText String?
+
+    // How the information was found
+    sourceType String?
+
+    // Actual URL where the evidence was found
+    sourceUrl String
+
+    createdAt DateTime @default(now())
+
+    @@index([productId])
+    @@index([importRecordId])
+    @@index([fieldName])
+}

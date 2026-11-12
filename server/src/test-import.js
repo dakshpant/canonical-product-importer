@@ -1,0 +1,53 @@
+import prisma from "./config/prisma.js";
+
+try {
+  // Create one batch containing two URL records
+  const batch = await prisma.importBatch.create({
+    data: {
+      totalUrls: 2,
+      completedUrls: 1,
+      failedUrls: 1,
+      status: "PARTIAL",
+
+      records: {
+        create: [
+          {
+            url: "https://example.com/product-a",
+            status: "SUCCESS",
+            extractedData: {
+              name: "Product A",
+              website: "https://example.com",
+            },
+          },
+          {
+            url: "https://example.com/product-b",
+            status: "FAILED",
+            errorMessage: "Unable to extract product information",
+          },
+        ],
+      },
+    },
+    include: {
+      records: true,
+    },
+  });
+
+  console.log("Created import batch:", batch);
+  console.log("Individual URL records:", batch.records);
+
+  // Retrieve the batch again
+  const savedBatch = await prisma.importBatch.findUnique({
+    where: {
+      id: batch.id,
+    },
+    include: {
+      records: true,
+    },
+  });
+
+  console.log("Retrieved batch:", savedBatch);
+} catch (error) {
+  console.error("Import test failed:", error);
+} finally {
+  await prisma.$disconnect();
+}
