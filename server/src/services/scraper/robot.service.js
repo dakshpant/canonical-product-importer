@@ -3,11 +3,22 @@ import { fetchResource } from "./scraper.service.js";
 
 const CRAWLER_USER_AGENT = "CanonicalProductImporter";
 
-export async function checkRobotsPermission(inputUrl) {
-  const targetUrl = new URL(inputUrl);
+// robots.txt rarely changes; reuse it for every URL on the same origin.
+const ROBOTS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const robotsCache = new Map(); // origin -> { expiresAt, rules }
 
-  // Every website has its robots.txt at the root.
-  const robotsUrl = new URL("/robots.txt", targetUrl.origin).toString();
+/**
+ * Fetch and interpret robots.txt for one origin.
+ * Returns one of:
+ *   { kind: "rules", robots, robotsUrl, finalRobotsUrl }  -> check per URL
+ *   { kind: "allow", reason, robotsUrl, ... }             -> everything allowed
+ *   { kind: "deny",  reason, robotsUrl, ... }             -> everything blocked
+ *
+ * Follows RFC 9309: 4xx means "no restrictions", 5xx and network errors
+ * mean "assume full disallow". 401/403 are treated conservatively as deny.
+ */
+async function loadRobotsRules(origin) {
+  const robotsUrl = new URL("/robots.txt", origin).toString();
 
   let response;
 
@@ -15,52 +26,77 @@ export async function checkRobotsPermission(inputUrl) {
     response = await fetchResource(robotsUrl);
   } catch (error) {
     return {
-      allowed: false,
+      kind: "deny",
       reason: "ROBOTS_FETCH_FAILED",
       robotsUrl,
       error: error.message,
     };
   }
 
-  // No robots.txt means no published crawling restrictions.
-  if (response.statusCode === 404) {
-    return {
-      allowed: true,
-      reason: "ROBOTS_NOT_FOUND",
-      robotsUrl,
-    };
+  const { statusCode } = response;
+
+  if (statusCode === 401 || statusCode === 403) {
+    return { kind: "deny", reason: "ROBOTS_ACCESS_FORBIDDEN", robotsUrl, statusCode };
   }
 
-  // Conservatively respect explicit access restrictions.
-  if ([401, 403].includes(response.statusCode)) {
-    return {
-      allowed: false,
-      reason: "ROBOTS_ACCESS_FORBIDDEN",
-      robotsUrl,
-    };
+  if (statusCode === 404) {
+    return { kind: "allow", reason: "ROBOTS_NOT_FOUND", robotsUrl };
   }
 
-  // Other unsuccessful responses: fail safely.
-  if (response.statusCode < 200 || response.statusCode >= 300) {
-    return {
-      allowed: false,
-      reason: "ROBOTS_HTTP_ERROR",
-      robotsUrl,
-      statusCode: response.statusCode,
-    };
+  if (statusCode >= 400 && statusCode < 500) {
+    return { kind: "allow", reason: "ROBOTS_UNAVAILABLE", robotsUrl, statusCode };
   }
 
-  // Parse the robots.txt contents.
-  const robots = robotsParser(robotsUrl, response.body);
+  if (statusCode < 200 || statusCode >= 300) {
+    return { kind: "deny", reason: "ROBOTS_HTTP_ERROR", robotsUrl, statusCode };
+  }
+
+  return {
+    kind: "rules",
+    robots: robotsParser(robotsUrl, response.body),
+    robotsUrl,
+    finalRobotsUrl: response.finalUrl,
+  };
+}
+
+async function getRobotsRules(origin) {
+  const cached = robotsCache.get(origin);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.rules;
+  }
+
+  const rules = await loadRobotsRules(origin);
+
+  // Don't keep a temporary failure around for the whole TTL.
+  if (rules.reason !== "ROBOTS_FETCH_FAILED" && rules.reason !== "ROBOTS_HTTP_ERROR") {
+    robotsCache.set(origin, { expiresAt: Date.now() + ROBOTS_CACHE_TTL, rules });
+  }
+
+  return rules;
+}
+
+export function clearRobotsCache() {
+  robotsCache.clear();
+}
+
+export async function checkRobotsPermission(inputUrl) {
+  const targetUrl = new URL(inputUrl);
+  const rules = await getRobotsRules(targetUrl.origin);
+
+  if (rules.kind !== "rules") {
+    const { kind, ...details } = rules;
+    return { allowed: kind === "allow", ...details };
+  }
 
   // Check permission for our specific crawler and submitted URL.
   const allowed =
-    robots.isAllowed(targetUrl.toString(), CRAWLER_USER_AGENT) === true;
+    rules.robots.isAllowed(targetUrl.toString(), CRAWLER_USER_AGENT) === true;
 
   return {
     allowed,
     reason: allowed ? "ALLOWED_BY_ROBOTS_TXT" : "DISALLOWED_BY_ROBOTS_TXT",
-    robotsUrl,
-    finalRobotsUrl: response.finalUrl,
+    robotsUrl: rules.robotsUrl,
+    finalRobotsUrl: rules.finalRobotsUrl,
   };
 }

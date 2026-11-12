@@ -23,7 +23,9 @@ export async function createImportBatch(urls) {
 
   // 3. Prepare an ImportRecord for every submitted URL
   const records = validation.results.map((item) => ({
-    url: String(item.originalUrl ?? ""),
+    // Store the normalised URL (trimmed, #fragment removed) when valid,
+    // so it can be matched against existing products later.
+    url: String(item.normalizedUrl ?? item.originalUrl ?? ""),
 
     status:
       item.isValid && !item.isDuplicate

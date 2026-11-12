@@ -3,6 +3,7 @@ import https from "node:https";
 import net from "node:net";
 
 import { resolvePublicAddress } from "./network-safety.js";
+import { ScrapeError, SCRAPE_ERROR } from "./scrape-error.js";
 
 const MAX_REDIRECTS = 5;
 const MAX_RESPONSE_SIZE = 2 * 1024 * 1024; // 2 MB
@@ -50,7 +51,12 @@ function requestOnce(url, verifiedAddress) {
         totalSize += chunk.length;
 
         if (totalSize > MAX_RESPONSE_SIZE) {
-          req.destroy(new Error("Response exceeds the 2 MB limit."));
+          req.destroy(
+            new ScrapeError(
+              SCRAPE_ERROR.TOO_LARGE,
+              "Response exceeds the 2 MB limit.",
+            ),
+          );
           return;
         }
 
@@ -69,18 +75,38 @@ function requestOnce(url, verifiedAddress) {
     });
 
     req.setTimeout(REQUEST_TIMEOUT, () => {
-      req.destroy(new Error("Request timed out."));
+      req.destroy(
+        new ScrapeError(SCRAPE_ERROR.TIMEOUT, "Request timed out."),
+      );
     });
 
-    req.on("error", reject);
+    req.on("error", (error) => {
+      reject(
+        error instanceof ScrapeError
+          ? error
+          : new ScrapeError(
+              SCRAPE_ERROR.FETCH_FAILED,
+              `Could not connect: ${error.message}`,
+            ),
+      );
+    });
 
     req.end();
   });
 }
 
-export async function fetchResource(inputUrl, redirectCount = 0) {
+/**
+ * Fetch a URL safely, following up to MAX_REDIRECTS redirects.
+ * Every hop is re-checked against private network addresses.
+ *
+ * options.onRedirect(fromUrl, toUrl) is awaited before each redirect is
+ * followed; throw from it to stop (used for per-hop robots.txt checks).
+ */
+export async function fetchResource(inputUrl, options = {}) {
+  const { redirectCount = 0, onRedirect } = options;
+
   if (redirectCount > MAX_REDIRECTS) {
-    throw new Error("Too many redirects.");
+    throw new ScrapeError(SCRAPE_ERROR.TOO_MANY_REDIRECTS, "Too many redirects.");
   }
 
   const url = new URL(inputUrl);
@@ -88,7 +114,10 @@ export async function fetchResource(inputUrl, redirectCount = 0) {
   const verifiedAddress = await resolvePublicAddress(url.toString());
 
   if (!verifiedAddress) {
-    throw new Error("URL points to a non-public or invalid address.");
+    throw new ScrapeError(
+      SCRAPE_ERROR.HOST_NOT_ALLOWED,
+      "Could not resolve the host, or it points to a private network address.",
+    );
   }
 
   const response = await requestOnce(url, verifiedAddress);
@@ -99,12 +128,22 @@ export async function fetchResource(inputUrl, redirectCount = 0) {
     const location = response.headers.location;
 
     if (!location) {
-      throw new Error("Redirect response has no Location header.");
+      throw new ScrapeError(
+        SCRAPE_ERROR.REDIRECT_WITHOUT_LOCATION,
+        "Redirect response has no Location header.",
+      );
     }
 
     const redirectUrl = new URL(location, url);
 
-    return fetchResource(redirectUrl.toString(), redirectCount + 1);
+    if (onRedirect) {
+      await onRedirect(url.toString(), redirectUrl.toString());
+    }
+
+    return fetchResource(redirectUrl.toString(), {
+      redirectCount: redirectCount + 1,
+      onRedirect,
+    });
   }
 
   return {
@@ -115,19 +154,52 @@ export async function fetchResource(inputUrl, redirectCount = 0) {
   };
 }
 
-export async function fetchPage(inputUrl) {
-  const result = await fetchResource(inputUrl);
-
-  if (result.statusCode === 404) {
-    throw new Error("Page not found.");
+function httpStatusError(statusCode) {
+  if (statusCode === 404 || statusCode === 410) {
+    return new ScrapeError(SCRAPE_ERROR.HTTP_404, "Page not found.", { statusCode });
   }
+
+  if (statusCode === 401 || statusCode === 403) {
+    return new ScrapeError(
+      SCRAPE_ERROR.ACCESS_DENIED,
+      `Website refused access (HTTP ${statusCode}).`,
+      { statusCode },
+    );
+  }
+
+  if (statusCode === 429) {
+    return new ScrapeError(
+      SCRAPE_ERROR.RATE_LIMITED,
+      "Website is rate limiting requests (HTTP 429).",
+      { statusCode },
+    );
+  }
+
+  return new ScrapeError(
+    SCRAPE_ERROR.HTTP_ERROR,
+    `Website returned HTTP ${statusCode}.`,
+    { statusCode },
+  );
+}
+
+export async function fetchPage(inputUrl, options = {}) {
+  const result = await fetchResource(inputUrl, options);
 
   if (result.statusCode < 200 || result.statusCode >= 300) {
-    throw new Error(`Website returned HTTP ${result.statusCode}.`);
+    throw httpStatusError(result.statusCode);
   }
 
-  if (!result.contentType.includes("text/html")) {
-    throw new Error("URL did not return an HTML page.");
+  const contentType = result.contentType.toLowerCase();
+
+  if (
+    !contentType.includes("text/html") &&
+    !contentType.includes("application/xhtml+xml")
+  ) {
+    throw new ScrapeError(
+      SCRAPE_ERROR.NOT_HTML,
+      "URL did not return an HTML page.",
+      { contentType: result.contentType },
+    );
   }
 
   return {

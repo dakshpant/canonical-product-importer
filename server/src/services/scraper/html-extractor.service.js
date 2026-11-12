@@ -18,7 +18,7 @@ export function extractHtmlMetadata(html, pageUrl) {
 
   const metadata = {
     title:
-      $("title").first().text().trim() ||
+      $("head > title").first().text().trim() ||
       getMetaContent('meta[property="og:title"]'),
 
     description:
@@ -185,15 +185,49 @@ const BLOCK_SELECTORS = [
   "summary",
 ].join(", ");
 
+// Inline elements that often sit next to each other with no whitespace
+// in the HTML (link rows, CTA buttons), which would glue words together:
+// "Get startedFind your subscription". Not span/strong/em, which are
+// sometimes used inside a single word.
+const INLINE_SEPARATOR_SELECTORS = [
+  "a",
+  "button",
+  "label",
+  "code",
+  "kbd",
+  "input",
+  "select",
+  "option",
+].join(", ");
+
+// Lines that carry no product information.
+const JUNK_LINE_PATTERNS = [
+  /^[#\-\s]*$/, // empty heading / list item markers left behind
+  /^skip to (main )?content$/i,
+  /^skip to main$/i,
+  /^skip navigation$/i,
+];
+
 // Mount points left empty by client-side frameworks (React, Vue, Next, Nuxt).
 const APP_ROOT_SELECTORS = "#root, #app, #__next, #__nuxt, [data-reactroot]";
+
+function cleanLine(line) {
+  return (
+    line
+      .replace(/\s+/g, " ")
+      // Undo the separator space added before punctuation: "docs ." -> "docs."
+      .replace(/ ([.,;:!?)\]])/g, "$1")
+      .replace(/([(\[]) /g, "$1")
+      .trim()
+  );
+}
 
 function toLines(element) {
   return element
     .text()
     .split("\n")
-    .map((line) => line.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+    .map(cleanLine)
+    .filter((line) => line && !JUNK_LINE_PATTERNS.some((re) => re.test(line)));
 }
 
 function truncateAtLine(text, maxLength) {
@@ -238,6 +272,8 @@ export function extractPageText(html) {
   });
 
   body.find("br").replaceWith("\n");
+
+  body.find(INLINE_SEPARATOR_SELECTORS).after(" ");
 
   body.find(BLOCK_SELECTORS).each((_, el) => {
     $(el).append("\n");
