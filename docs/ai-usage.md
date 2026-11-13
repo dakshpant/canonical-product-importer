@@ -6,7 +6,7 @@ AI tools were used in two separate ways during this project: as part of the prod
 
 | What                                                                                                  | Where                     | How it is controlled                                                                                                                                                                                                                                          |
 | ----------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Groq (`openai/gpt-oss-120b`) converts scraped webpage content into proposed canonical product fields. | `server/src/services/ai/` | The response is parsed and validated using the extraction schema. `verify-extraction.js` checks proposed values against the scraped page and discards unsupported values. The LLM cannot set product status, `sku_id`, `slug`, or admin-only quantity fields. |
+| Groq (`openai/gpt-oss-120b` by default; the recorded test run used `openai/gpt-oss-20b`) converts scraped webpage content into proposed canonical product fields. Without an API key, recorded answers are replayed. | `server/src/services/ai/` | The response is parsed and validated using the extraction schema. `verify-extraction.js` checks every proposed value against the scraped page and discards unsupported values; a replayed answer goes through the same checks. The LLM cannot set product status, `sku_id`, `slug`, or admin-only quantity fields. |
 
 The runtime system prompt is maintained in `server/src/services/ai/system.prompt.md`.
 
@@ -20,6 +20,7 @@ The runtime system prompt is maintained in `server/src/services/ai/system.prompt
 | Scraper and network safety         | ChatGPT     | Helped review URL validation, scraping behaviour and network-safety edge cases.                              | Tested URL validation, blocked destinations and scraping failures.                              |
 | Persistence and refresh proposals  | ChatGPT     | Helped reason through product persistence, proposal creation and admin review behaviour.                     | Checked that refreshes create proposals rather than silently overwriting existing product data. |
 | Documentation                      | Claude Code | Assisted with drafting documentation from the implementation and design decisions.                           | Checked documentation claims against the actual implementation.                                 |
+| API integration and hardening | Claude Code | Connected the frontend to the API (imports, product detail, edit/approve/reject, refresh review); built the refresh-apply endpoint, record/replay for keyless runs, `sku_id` generation, the retry with less page text, and their unit tests; compiled the results report from the database. | Tested each endpoint against a copy of the database, ran `npm test`, replayed recordings without a key, and checked the report's numbers against the stored imports. |
 
 ## 3. What I checked manually
 
@@ -35,7 +36,11 @@ The runtime system prompt is maintained in `server/src/services/ai/system.prompt
 ## 4. Where AI output was wrong or rejected
 
 - Some imports failed with `LLM_RATE_LIMITED` because the Groq provider temporarily restricted requests. These were recorded as import failures rather than successful extractions.
-- [Add a real example of an unsupported or unverified field discarded by the verifier, if you have one.]
+- **The runtime model proposed values the page doesn't contain, and the verifier dropped them.** Odoo CRM: four features such as `Integrates with: Email` (the page lists the items under an "Integrates with" heading, so the joined text is not on the page). Zoho CRM: the feature `AI automation`. None reached a record; each is listed in `review.discarded` with `not_found_on_page`.
+- **The runtime model returned an answer that failed validation.** For Zoho Books, one quoted source was over 1,000 characters, so the whole answer was rejected (`LLM_INVALID_OUTPUT`) and nothing was saved.
+- **The runtime model's kept values were sometimes poor.** Jira's name came back as `jira` and Zoho Books' as its page title. They are on the page, so they pass verification; the admin corrects them on the Review screen. These are counted honestly in the results report.
+- **AI coding advice that was wrong.** Claude Code told me to move the backend to port 5000. On macOS that port belongs to AirPlay Receiver, so every API call from the frontend returned 403. I traced it with `lsof`, and the project now uses 5001.
+- **AI-written code with a bug I caught in testing.** The first version of the recording client saved every answer from Groq, including ones that then failed validation, so an invalid answer overwrote a good recording. I found it when replaying Zoho Books without a key failed.
 
 ## 5. Responsibility
 

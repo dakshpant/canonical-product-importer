@@ -39,13 +39,13 @@ The browser only talks to our own API. All scraping and LLM calls happen on the 
    - `network-safety.js` resolves the host and rejects private, loopback and link-local addresses. The connection is pinned to the checked IP, and every redirect is checked again.
    - `scraper.service.js` fetches with a 15 s timeout, a 2 MB limit and at most 5 redirects.
 3. **Extract** (`html-extractor.service.js`, `product-extraction-input.service.js`): page title, meta description, canonical URL, Open Graph tags, JSON-LD nodes and readable page text (headings and list items marked). Raw HTML never goes to the LLM. Pages with too little content are failed early.
-4. **Propose** ([`ai/extraction.service.js`](../server/src/services/ai/extraction.service.js)): one Groq call with `temperature: 0` and a strict JSON schema. The system prompt is [`system.prompt.md`](../server/src/services/ai/system.prompt.md), with the allowed taxonomy lists added from `taxonomy.js` so the prompt and the verifier always agree.
+4. **Propose** ([`ai/extraction.service.js`](../server/src/services/ai/extraction.service.js)): one Groq call with `temperature: 0` and a strict JSON schema. If Groq answers 413 (larger than the free tier's 8,000 tokens per minute), the call is repeated with 60%, then 36%, of the page text; `extraction.page_text_scale` records how much was sent. The system prompt is [`system.prompt.md`](../server/src/services/ai/system.prompt.md), with the allowed taxonomy lists added from `taxonomy.js` so the prompt and the verifier always agree.
    The client is picked by `LLM_MODE` ([`ai/recorded.client.js`](../server/src/services/ai/recorded.client.js)): live Groq, **record** (live, plus save the answer to `server/recordings/`), or **replay** (the saved answer for that URL, no network). With `auto` (the default), the app is live when a key is set and replays otherwise. Steps 5–7 run the same way for a replayed answer.
 5. **Validate** ([`product-extraction.validator.js`](../server/src/validators/product-extraction.validator.js)): Zod checks the shape. Invalid JSON or a schema mismatch gets one retry.
 6. **Verify** ([`ai/verify-extraction.js`](../server/src/services/ai/verify-extraction.js)): each value is searched for on the page by the app itself (see the README for the rules). Values that are not found are dropped and listed in `review.discarded` with a reason.
 7. **Save** ([`product/product.service.js`](../server/src/services/product/product.service.js)), in one transaction:
    - **Known URL:** a `ProductUpdateProposal` with the non-empty new values only. The product itself is untouched.
-   - **New URL, with a name:** a `Product` with a unique slug, admin-only fields left `null`, and status `UNDER_REVIEW` if the required fields are present, otherwise `DRAFT`.
+   - **New URL, with a name:** a `Product` with a unique `slug` and `sku_id` (`PRD-` + 8 hex, see [`identifiers.js`](../server/src/services/product/identifiers.js)), admin-only fields left `null`, and status `UNDER_REVIEW` if the required fields are present, otherwise `DRAFT`.
    - **New URL, no name:** nothing is created. The record is `PARTIAL`.
    - `ProductSource` rows are written for every kept value.
 8. **Finish.** The record becomes `SUCCESS`, `PARTIAL` or `FAILED`, and the batch counters are recomputed from the record statuses (not incremented, so they cannot drift).
@@ -58,7 +58,8 @@ The browser only talks to our own API. All scraping and LLM calls happen on the 
 | Scraper | robots.txt disallow, private address, timeout, too large, HTTP error | Coded `ScrapeError`. **No retry yet** (planned for timeouts, 429 and 5xx) |
 | Groq | 429 rate limit | Waits for `Retry-After`, up to 3 times and 60 s each. These waits are not counted as attempts |
 | Groq | Timeout, network error, 5xx, invalid JSON, schema mismatch | 1 retry after 1 s |
-| Groq | 401/403, 413 (input too large), missing key | Fails at once with a clear code |
+| Groq | 413 (input too large) | Retried with 60%, then 36%, of the page text; fails with `LLM_INPUT_TOO_LARGE` if still too large |
+| Groq | 401/403, missing key, no recording in replay mode | Fails at once with a clear code (`LLM_AUTH_FAILED`, `LLM_NOT_CONFIGURED`, `NO_RECORDING`) |
 | Logging | — | API keys are removed from every error message (`redact`). Unexpected errors are logged with the URL |
 
 Error codes are defined in [`scraper/scrape-error.js`](../server/src/services/scraper/scrape-error.js) and [`ai/errors.js`](../server/src/services/ai/errors.js). The frontend turns each code into a plain-English next step ([`FailureReason.jsx`](../client/src/components/imports/FailureReason.jsx)).
@@ -71,7 +72,7 @@ Error codes are defined in [`scraper/scrape-error.js`](../server/src/services/sc
 | `/imports` | `ImportsPage` | Past import batches |
 | `/imports/:batchId` | `ImportSummaryPage` | Succeeded, partly filled and failed URLs, with reasons |
 | `/products` | `ProductsPage` | Every product, with status filter and a flag on those needing attention |
-| `/products/:productId` | `ProductReviewPage` | Each field next to its source evidence; edit, approve, reject; refresh comparison (`RefreshReview`) |
+| `/products/:productId` | `ProductReviewPage` | Each field next to its source evidence; edit, approve, reject; refresh comparison (`RefreshReview`). `?proposalId=` opens a specific refresh |
 
 All calls go through [`client/src/services/api.js`](../client/src/services/api.js). The endpoints are listed in [api-contract.md](api-contract.md).
 

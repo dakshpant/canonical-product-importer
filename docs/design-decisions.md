@@ -121,6 +121,8 @@
 
 **Trade-offs:** Long pages are cut short, and large batches hit rate limits, which are waited out up to a cap. The model can be changed with `GROQ_MODEL`.
 
+**In practice:** the test run used up `gpt-oss-120b`'s daily limit (200,000 tokens), so the recorded results use `openai/gpt-oss-20b`, which has its own limit and supports the same strict schema and settings with no code change. The smaller model missed some fields the larger one finds (for example Zoho Books' category); the verifier keeps it from adding anything the page doesn't say.
+
 
 ### Decision: The app sets `image_type`, and URLs are never built
 
@@ -178,3 +180,27 @@
 - Recording is explicit (`LLM_MODE=record`), so normal live use never rewrites committed files.
 
 **Alternatives considered:** A local model through Ollama (rejected: a large download and extra setup for the reviewer); seed data only (rejected: the reviewer couldn't try an import).
+
+
+### Decision: Retry with less page text when a request is too large
+
+**Status:** Decided
+
+**Choice:** If Groq answers 413 (the request exceeds the free tier's 8,000 tokens per minute), send it again with 60%, then 36%, of the page text before failing.
+
+**Context:** The system prompt is about 3,500 tokens and page text varies from visit to visit, so a page that fitted once can go over the limit the next time (Zoho Books: 8,391 tokens).
+
+**Reason:** Trimming only affects what the model reads. Its answer is still verified against the full page, so a smaller request can mean fewer fields filled, never invented ones. `extraction.page_text_scale` records how much was sent.
+
+**Alternatives considered:** A permanently smaller page budget (rejected: it loses content on every page, including those that fit).
+
+
+### Decision: `sku_id` is random, not derived from the name
+
+**Status:** Decided
+
+**Choice:** `PRD-` plus 8 random upper-case hex characters (e.g. `PRD-7F3A09C2`), checked for uniqueness before saving, with a unique index in the database as well.
+
+**Reason:** A SKU must not change when the admin corrects the name, and names extracted from pages are often wrong at first (`jira`, page titles). A random value also avoids collisions between products with similar names. A migration gives existing products a SKU in the same format.
+
+**Trade-off:** The SKU carries no meaning a human can read; the slug does that job.

@@ -6,11 +6,12 @@
 
 1. **The LLM proposes, the backend decides.** Groq returns JSON in a strict schema, with a quote for each value. Zod checks the shape. Then the app searches for each value on the page itself: copied text must appear word for word in one place, and URLs must already be in the page's metadata. Anything else is dropped and listed with a reason. The evidence shown to the admin is the page's own line, not the model's quote.
 2. **Fixed lists for classification.** `category`, `industry`, `product_kind`, `platforms` and `deployments` come from fixed lists. A pick is kept only if the quoted page line contains one of that value's keywords. This keeps the catalogue consistent and every pick traceable.
-3. **The app owns what it knows.** `slug` (and `sku_id`) are generated. `image_type` comes from where the image was found. `unit_of_measure`, `min_quantity` and `max_quantity` are never extracted.
+3. **The app owns what it knows.** `slug` and `sku_id` (`PRD-` + 8 hex, random so it survives a rename) are generated and unique. `image_type` comes from where the image was found. `unit_of_measure`, `min_quantity` and `max_quantity` are never extracted.
 4. **Refresh never overwrites.** Re-importing a known URL creates a proposal that holds only the non-empty new values. The admin chooses field by field, and a blank can never replace a value.
-5. **Contain every failure.** Each URL is its own record with a status and a `CODE: message` reason. One failure never stops the batch. LLM calls retry transient errors and wait out rate limits.
+5. **Contain every failure.** Each URL is its own record with a status and a `CODE: message` reason. One failure never stops the batch. LLM calls retry transient errors, wait out per-minute rate limits, and retry with less page text when a request is too large.
 6. **Safe scraping.** robots.txt is checked first, and if it can't be read the page is skipped. Only public IPs are allowed, the connection is pinned to the checked IP, and limits apply to time, size and redirects.
 7. **Simple runtime.** SQLite, Prisma and sequential processing: one command sets everything up, and behaviour is predictable.
+8. **Runs without an API key.** Each LLM answer can be recorded per URL and replayed when no key is set. Only the proposal is replayed: the page is still scraped and verified live, so a recording can lose values but never add them.
 
 ## Trade-offs
 
@@ -22,12 +23,18 @@
 | Plain HTTP fetch | Fast, simple, safe | JavaScript-only pages come back thin |
 | Sequential batches | Simple, polite to vendors | Slower for large batches |
 | Skip the page if robots.txt is unreadable | Never scrapes against the owner's wishes | Some reachable pages are refused |
+| Record and replay | Reviewers can try it with no key; results are reproducible | Only recorded URLs work without a key |
+
+## What the test run showed
+
+On 8 real pages the app filled **11.9 of 19** fields per product and left **10.1 of 25** for the admin. No value was invented, but some kept values were poor (lower-case `jira`, a page title as the name) and some true values were lost to rewording. `industry` and `skills` were never filled. See the [results report](results-report.md).
 
 ## What I would build next for the admin
 
-1. **Confidence and one-click accept.** Mark fields matched in JSON-LD or metadata as high confidence and let the admin accept them all at once.
-2. **Learn from edits and rejections.** Feed common corrections back into the taxonomy keywords and the prompt.
-3. **JavaScript rendering fallback.** Use a headless browser only when the plain fetch returns thin content.
-4. **Product family import.** Start from a parent URL, discover the child product pages, and import them as one batch.
-5. **Change detection.** Store a hash of the page content and propose a refresh when it changes.
-6. **Resumable batches.** Reset records stuck in `PROCESSING` after a restart, and allow limited concurrency across different domains.
+1. **Better names.** Prefer the product name from JSON-LD or `og:title`, keep its original casing, and strip " | Vendor" title suffixes. This was the most common fix needed in the test run.
+2. **Confidence and one-click accept.** Mark fields matched in JSON-LD or metadata as high confidence and let the admin accept them all at once.
+3. **Learn from edits and rejections.** Feed common corrections back into the taxonomy keywords and the prompt.
+4. **JavaScript rendering fallback.** Use a headless browser only when the plain fetch returns thin content.
+5. **Product family import.** Start from a parent URL, discover the child product pages, and import them as one batch.
+6. **Change detection.** Store a hash of the page content and propose a refresh when it changes.
+7. **Resumable batches.** Reset records stuck in `PROCESSING` after a restart, and allow limited concurrency across different domains.
