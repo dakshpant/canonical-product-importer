@@ -4,15 +4,26 @@ export const urlSchema = z
   .string()
   .trim()
   .pipe(z.url({ error: "Please provide a valid URL." }))
+  .refine(
+    (value) => /^https?:\/\/\S+$/i.test(value) && !/[\[\]()<>]/.test(value),
+    "Please provide a plain HTTP or HTTPS URL, not a Markdown link.",
+  )
   .refine((value) => {
     try {
       const parsedUrl = new URL(value);
-
       return ["http:", "https:"].includes(parsedUrl.protocol);
     } catch {
       return false;
     }
   }, "Only HTTP and HTTPS URLs are allowed.");
+
+  
+// console.log(
+//   "Markdown rejection test:",
+//   urlSchema.safeParse(
+//     "[https://www.hubspot.com/products/crm](https://www.hubspot.com/products/crm)",
+//   ).success,
+// );
 
 export function validateUrlBatch(urls) {
   if (!Array.isArray(urls)) {
@@ -27,7 +38,6 @@ export function validateUrlBatch(urls) {
   const results = urls.map((input, index) => {
     const parsed = urlSchema.safeParse(input);
 
-    // Invalid URL
     if (!parsed.success) {
       return {
         index,
@@ -38,13 +48,11 @@ export function validateUrlBatch(urls) {
       };
     }
 
-    // Normalize URL
     const normalizedUrl = new URL(parsed.data);
     normalizedUrl.hash = "";
 
     const finalUrl = normalizedUrl.toString();
 
-    // Check duplicate
     if (seen.has(finalUrl)) {
       return {
         index,

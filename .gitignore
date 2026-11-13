@@ -147,3 +147,12 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma generated client (rebuilt by `npm install` via postinstall)
+server/generated/

@@ -16,7 +16,7 @@
     "setup": "node -e \"require('fs').existsSync('.env')||require('fs').copyFileSync('.env.example','.env')\" && npm run db:migrate",
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test src/test-ai-extraction.js src/test-proposal-review.js"
+    "test": "node --test src/test-ai-extraction.js src/test-proposal-review.js src/test-product-update.js"
   },
   "keywords": [],
   "author": "",

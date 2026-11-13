@@ -65,3 +65,26 @@ export async function createImportBatch(urls) {
     batch,
   };
 }
+
+// Fields the import screens need from each record (see docs/api-contract.md).
+const RECORD_INCLUDE = {
+  orderBy: { created_at: "asc" },
+  include: {
+    update_proposal: { select: { id: true, status: true } },
+  },
+};
+
+/** All batches, newest first, without their records. */
+export async function getImportBatches() {
+  return prisma.importBatch.findMany({
+    orderBy: { created_at: "desc" },
+  });
+}
+
+/** One batch with its records, or null if it does not exist. */
+export async function getImportBatch(batchId) {
+  return prisma.importBatch.findUnique({
+    where: { id: batchId },
+    include: { records: RECORD_INCLUDE },
+  });
+}

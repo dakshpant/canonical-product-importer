@@ -2,6 +2,7 @@ import prisma from "../../config/prisma.js";
 
 import { BATCH_STATUS, IMPORT_STATUS } from "../../constants/status.js";
 import { prepareExtractionInput } from "../scraper/product-extraction-input.service.js";
+import { persistExtractedProduct } from "./product.service.js";
 
 const TERMINAL_RECORD_STATUSES = [
   IMPORT_STATUS.SUCCESS,
@@ -67,7 +68,9 @@ export async function refreshBatchProgress(batchId, { finished = false } = {}) {
  */
 export async function processImportRecord(recordId, { extractProduct }) {
   if (typeof extractProduct !== "function") {
-    throw new TypeError("processImportRecord needs an extractProduct function.");
+    throw new TypeError(
+      "processImportRecord needs an extractProduct function.",
+    );
   }
 
   // Claim the record only if it is still PENDING, so it is never
@@ -83,14 +86,25 @@ export async function processImportRecord(recordId, { extractProduct }) {
 
   if (claimed.count === 0) return null;
 
-  const record = await prisma.importRecord.findUnique({ where: { id: recordId } });
+  const record = await prisma.importRecord.findUnique({
+    where: { id: recordId },
+  });
 
   try {
     const input = await prepareExtractionInput(record.url);
     const result = await extractProduct(input, record);
 
+    if (!result?.data?.product) {
+      throw new Error("AI extraction returned no product data.");
+    }
+
+    // Save the new product or create an update proposal.
+    // Existing product fields are not modified here.
+    const persistence = await persistExtractedProduct(record, result.data);
+
     const status =
-      result?.status === IMPORT_STATUS.PARTIAL
+      result.status === IMPORT_STATUS.PARTIAL ||
+      persistence.type === "INCOMPLETE"
         ? IMPORT_STATUS.PARTIAL
         : IMPORT_STATUS.SUCCESS;
 
@@ -98,7 +112,7 @@ export async function processImportRecord(recordId, { extractProduct }) {
       where: { id: recordId },
       data: {
         status,
-        extracted_data: result?.data ?? null,
+        extracted_data: result.data,
       },
     });
   } catch (error) {
