@@ -155,7 +155,14 @@ export const sourceSchema = z
       z.string().trim().min(1).max(MAX_EVIDENCE_LENGTH),
       z.array(z.string().trim().min(1).max(MAX_LIST_ITEM_LENGTH)).min(1),
     ]),
-    evidence_text: z.string().trim().min(1).max(MAX_EVIDENCE_LENGTH),
+    // The model's quote is only used to find the line on the page (the
+    // evidence stored and shown is the page's own line), so an over-long
+    // quote is cut rather than rejecting the whole answer.
+    evidence_text: z
+      .string()
+      .trim()
+      .min(1)
+      .transform((text) => text.slice(0, MAX_EVIDENCE_LENGTH)),
     source_type: z.enum(SOURCE_TYPES),
   })
   .strict();
