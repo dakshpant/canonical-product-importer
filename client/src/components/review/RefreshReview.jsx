@@ -13,8 +13,11 @@ import { EvidenceQuote } from './Evidence.jsx'
  * - Default choice: keep the current value, unless the field is empty today.
  */
 export default function RefreshReview({ product, proposal, onResolve, disabledReason }) {
-  // proposed_data is the extraction result: { product, sources, ... }
-  const proposedSources = proposal.proposed_data?.sources ?? []
+  // Evidence for the new values: sent with the proposal, or else the product's
+  // sources that came from the re-scrape that created this proposal.
+  const proposedSources =
+    proposal.sources ??
+    (product.sources ?? []).filter((s) => s.import_record_id === proposal.import_record_id)
 
   const { changed, notFound, unchanged } = useMemo(() => {
     const proposed = proposal.proposed_data?.product ?? proposal.proposed_data ?? {}

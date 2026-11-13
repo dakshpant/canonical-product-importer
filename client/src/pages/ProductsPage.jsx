@@ -36,6 +36,13 @@ function matches(product, filter) {
   if (filter === 'attention') return product.status !== PRODUCT_STATUS.ACTIVE || product.pending_proposals > 0
   return product.status === filter
 }
+function reviewPath(product) {
+  const basePath = `/products/${product.id}`
+
+  if (!product.pending_proposal_id) return basePath
+
+  return `${basePath}?proposalId=${product.pending_proposal_id}`
+}
 
 export default function ProductsPage() {
   const navigate = useNavigate()
@@ -77,9 +84,8 @@ export default function ProductsPage() {
               key={f.key}
               type="button"
               onClick={() => setSearchParams(f.key === 'attention' ? {} : { status: f.key })}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
-                filter === f.key ? 'bg-white font-medium text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'
-              }`}
+              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${filter === f.key ? 'bg-white font-medium text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'
+                }`}
             >
               {f.label}
               {products && <span className="ml-1.5 tabular-nums text-stone-400">{counts[f.key]}</span>}
@@ -126,11 +132,15 @@ export default function ProductsPage() {
                 {visible.map((product) => (
                   <tr
                     key={product.id}
-                    onClick={() => navigate(`/products/${product.id}`)}
+                    onClick={() => navigate(reviewPath(product))}
                     className="cursor-pointer hover:bg-stone-50"
                   >
                     <td className="px-5 py-3">
-                      <Link to={`/products/${product.id}`} className="font-medium text-stone-900" onClick={(e) => e.stopPropagation()}>
+                      <Link
+                        to={reviewPath(product)}
+                        className="font-medium text-stone-900"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {product.name || <span className="italic text-stone-400">Unnamed product</span>}
                       </Link>
                       <p className="mt-0.5 text-xs text-stone-500">

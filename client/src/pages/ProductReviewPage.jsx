@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
-
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import StatusBadge from '../components/common/StatusBadge.jsx'
 import { Alert, Button, Card, Loading } from '../components/common/ui.jsx'
 import FieldRow from '../components/review/FieldRow.jsx'
@@ -25,7 +24,42 @@ import { PRODUCT_STATUS } from '../utils/status.js'
 
 export default function ProductReviewPage() {
   const { productId } = useParams()
-  const { data: product, error, loading, reload } = useAsync(() => api.getProduct(productId), [productId])
+  const [searchParams] = useSearchParams()
+  const proposalId = searchParams.get('proposalId')
+
+  const { data: product, error, loading, reload } = useAsync(async () => {
+    // Normal product review: no pending proposal.
+    if (!proposalId) {
+      return api.getProduct(productId)
+    }
+
+    // Refresh review: the product (with its own evidence) and the specific
+    // proposal (with the evidence for the new values), loaded together.
+    const [product, proposal] = await Promise.all([
+      api.getProduct(productId),
+      api.getProposal(proposalId),
+    ])
+
+    if (proposal.product.id !== productId) {
+      throw new Error('This proposal does not belong to the selected product.')
+    }
+
+    // Keep the product's own sources for the main fields; the proposal's
+    // sources only back the new values in the refresh panel.
+    return {
+      ...product,
+      update_proposals: [
+        {
+          id: proposal.id,
+          status: proposal.status,
+          proposed_data: proposal.proposed_data,
+          created_at: proposal.created_at,
+          import_record_id: proposal.import_record?.id ?? null,
+          sources: proposal.sources ?? [],
+        },
+      ],
+    }
+  }, [productId, proposalId])
   // Lives here so it survives the editor remounting after a save.
   const [message, setMessage] = useState(null)
 
@@ -176,8 +210,8 @@ function ProductEditor({ product, reload, message, setMessage }) {
               title={
                 !sourceUrl ? 'No source URL on record'
                   : dirty ? 'Save or discard your edits first'
-                  : pendingProposal ? 'Review the pending refresh first'
-                  : 'Scrape the page again and compare'
+                    : pendingProposal ? 'Review the pending refresh first'
+                      : 'Scrape the page again and compare'
               }
             >
               Re-scrape
