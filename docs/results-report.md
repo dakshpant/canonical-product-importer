@@ -1,6 +1,6 @@
 # Results report
 
-Run on **13 Nov 2026** against 8 real, public B2B software product pages, plus one URL chosen to fail. All numbers below come from the app's own database (`ImportRecord.extracted_data`). Nothing is estimated. Cells marked **✍️ TO FILL** need a manual measurement and are not filled in yet.
+Run on **13 Nov 2026** against 8 real, public B2B software product pages, plus one URL chosen to fail, and a separate [timing run](#app-processing-time) on 4 further products. All numbers below come from the app's own database (`ImportRecord.extracted_data`). Nothing is estimated. Cells marked **✍️ TO FILL** need a manual measurement and are not filled in yet.
 
 **Model:** `openai/gpt-oss-20b` on Groq's free tier, temperature 0. The default `gpt-oss-120b` had hit its daily token limit (see [Failures](#failures-and-their-causes)). Every answer is saved in [`server/recordings/`](../server/recordings), so the run can be reproduced without an API key (see the README).
 
@@ -28,32 +28,37 @@ The app can fill 19 of the 25 canonical fields. `sku_id`, `slug` and `sources` a
 | 8 | HubSpot CRM | https://www.hubspot.com/products/crm | Normal page, ground truth |
 | — | Linear | https://linear.app/ | **Fails**: the page only renders with JavaScript |
 
+Zoho Books' figures are from its re-run after the long-quote fix (see [Failures](#failures-and-their-causes)); that is also the answer saved in its recording.
+
 ## Summary
 
 | Measure | Before (manual) | After (app) |
 | --- | --- | --- |
-| Fields filled automatically per product (of 19 the app may fill) | 0 | **11.9** on average (range 8–14) |
-| Fields left for the admin per product | 25 | **10.1** on average: 7.1 the page didn't support + 3 admin-only quantity fields |
+| Fields filled automatically per product (of 19 the app may fill) | 0 | **12.1** on average (range 8–14) |
+| Fields left for the admin per product | 25 | **9.9** on average: 6.9 the page didn't support + 3 admin-only quantity fields |
 | Accuracy of filled fields (3 ground-truth products) | — | ✍️ TO FILL (from the [accuracy tables](#accuracy-against-ground-truth)) |
 | Admin time per product | ✍️ TO FILL (average of the 2 timed entries) | ✍️ TO FILL (average review time) |
 | URLs that produced a product to review | — | **7 of 8** real pages (+ 1 deliberate failure) |
-| Proposed values dropped by the verifier | — | **9** across 8 pages (none reached a record) |
+| Proposed values dropped by the verifier | — | **11** across 8 pages (none reached a record) |
+| App processing time per product | — | **6 s** when the AI provider isn't throttling; **30–80 s** on the free tier when it is (see [App processing time](#app-processing-time)) |
 
 ## Per product
 
 | # | Product | Import status | Product status | Filled (of 19) | Left for admin | Dropped by verifier | Missing required |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Zoho CRM | Success | Under review | 12 | 10 | 2 | — |
-| 2 | Zoho Books | Partial | Draft | 11 | 11 | 0 | category |
+| 2 | Zoho Books | Success | Draft† | 13 | 9 | 2 | — |
 | 3 | Zoho Desk | Success | Draft* | 12 | 10 | 0 | — |
 | 4 | Jira | Success | Under review | 13 | 9 | 0 | — |
 | 5 | Confluence | Success | Under review | 11 | 11 | 0 | — |
 | 6 | Odoo CRM | Success | Under review | 14 | 8 | 4 | — |
 | 7 | Odoo Inventory | Partial | **not created** | 8 | 14 | 3 | name, category |
 | 8 | HubSpot CRM | Success | Under review | 14 | 8 | 0 | — |
-| | **Average** | | | **11.9** | **10.1** | **1.1** | |
+| | **Average** | | | **12.1** | **9.9** | **1.4** | |
 
 "Left for admin" = the scraped fields that stayed empty (19 − filled) plus the 3 quantity fields only the admin may enter.
+
+† Zoho Books' first imports found no category. The re-run found "Accounting & finance"; as with Zoho Desk below, it waits in a refresh proposal.
 
 \* Zoho Desk was first imported without a category. A later re-scrape found "Customer support"; that value sits in a refresh proposal waiting for the admin, so the product stays in Draft until it is applied.
 
@@ -61,9 +66,10 @@ The app can fill 19 of the 25 canonical fields. `sku_id`, `slug` and `sources` a
 
 | Field | Filled on | Field | Filled on |
 | --- | --- | --- | --- |
-| short_description, website, image_url, image_source_page, features | 8 / 8 | tags | 5 / 8 |
-| name, tagline, overview, image_type | 7 / 8 | platforms | 4 / 8 |
-| product_kind, category | 6 / 8 | target_customers | 3 / 8 |
+| short_description, website, image_url, image_source_page, features | 8 / 8 | | |
+| name, tagline, overview, image_type, category | 7 / 8 | tags | 6 / 8 |
+| product_kind | 6 / 8 | platforms | 4 / 8 |
+| target_customers | 3 / 8 | | |
 | sub_category | 2 / 8 | deployments | 1 / 8 |
 | **industry, skills, image_alt** | **0 / 8** | | |
 
@@ -154,7 +160,8 @@ The verifier guarantees every value is **on the page**. It does not guarantee th
 | Vendor name instead of product name | Odoo CRM → `Odoo` | Same reason |
 | Same list in two fields | HubSpot `tags` = `features` | The model copied the feature list into tags; both are on the page |
 | Correct-looking values dropped | Odoo CRM `Integrates with: Email` (×4); Zoho CRM `AI automation` | The model reworded or joined page text. Exact matching rejects that by design |
-| Smaller model misses fields | Zoho Books: no category in 2 of 3 runs | `gpt-oss-20b` returned `null`; nothing was dropped |
+| Smaller model misses fields | Zoho Books: no category in 2 of its 4 runs (found on the 4th) | `gpt-oss-20b` returned `null`; nothing was dropped |
+| A correct-looking pick rejected | Trello: category `Project management` dropped | The model's quoted line didn't contain a project-management keyword, so the pick wasn't traceable. The admin sets it by hand |
 
 These are the honest cost of the "never invent" rule: no value was made up, but some kept values need a one-click edit, and some true values were lost to paraphrasing.
 
@@ -165,12 +172,30 @@ These are the honest cost of the "never invent" rule: no value was made up, but 
 | https://linear.app/ | `JS_RENDERED` | "The page only renders with JavaScript, which is not supported yet." | Plain HTTP fetching. A headless-browser fallback is listed under *what next* in the design note |
 | https://www.odoo.com/app/inventory | Import **Partial**, no product | "Partly filled" with *name* and *category* missing | Thin page: no verifiable product name, and the app won't invent one |
 | Zoho Books | `LLM_INPUT_TOO_LARGE` | At the time, the raw provider message. Now: "The page is too large for the AI provider's limit, even after trimming. Fill this product in by hand." | The request was 8,391 tokens against a free-tier limit of 8,000/minute. **Fixed:** the app now retries with 60%, then 36%, of the page text, and only shows this if all three fail |
-| Zoho Books | `LLM_INVALID_OUTPUT` | "The AI output failed validation; nothing was saved." | One quote from the model was over 1,000 characters, so the whole answer was rejected. Fix pending: trim long quotes instead |
+| Zoho Books | `LLM_INVALID_OUTPUT` | "The AI output failed validation; nothing was saved." | One quote from the model was over 1,000 characters, so the whole answer was rejected. **Fixed:** an over-long quote is now cut (the quote only locates the line; the page's own line is stored). The re-run succeeded |
+| https://www.pipedrive.com/en | `LLM_INVALID_OUTPUT` | "The AI output failed validation; nothing was saved." | Groq could not produce JSON matching the schema (`json_validate_failed`), twice. Nothing was saved, and no recording was made |
+| https://www.freshworks.com/crm/ | `HTTP_404` | "The page does not exist (404). Check the URL." | A wrong URL chosen for the timing run. Fails in 3 s, before the AI step |
 | 11 imports | `LLM_RATE_LIMITED` | "The AI provider is rate limiting requests. Retry later." | `gpt-oss-120b` reached its **daily** limit (200,000 tokens). Per-minute limits are waited out automatically (up to 60 s, 3 times); a daily limit isn't, and the URL fails with this reason |
 | `…/jira,`, `…/sales,`, `https://linear.app/,` | `HTTP_404` | "The page does not exist (404)." | URLs pasted with a trailing comma. The Import screen splits only on new lines. Fix pending: split on commas and spaces too |
 | A pasted Markdown link `[url](url)` | `Please provide a valid URL.` | Rejected before any fetch | Input validation working as intended |
 
 In every case one bad URL did not stop the batch. Every failure is stored on its import record with a `CODE: message` reason and shown on the Import summary screen.
+
+## App processing time
+
+A separate run on 4 products outside the test set, plus the Zoho Books re-run, timed through the real pipeline (record mode, `gpt-oss-20b`, one URL after another):
+
+| Product | Result | Fetch + parse + save | AI step | Total | Fields filled |
+| --- | --- | --- | --- | --- | --- |
+| Zendesk (https://www.zendesk.com/service/) | Success | 2.9 s | 3.0 s | **5.9 s** | 13 |
+| Trello (https://trello.com/home) | Partial (no category) | 1.2 s | 28.9 s | 30.2 s | 7 |
+| Zoho Books (re-run) | Success | 0.4 s | 52.3 s | 52.7 s | 13 |
+| Pipedrive (https://www.pipedrive.com/en) | Failed (`LLM_INVALID_OUTPUT`) | 0.7 s | 80.2 s | 80.9 s | 0 |
+| Freshworks (https://www.freshworks.com/crm/) | Failed (`HTTP_404`) | 3.0 s | — | 3.0 s | 0 |
+
+- **Unthrottled, a product takes about 6 seconds** (Zendesk): 3 s to fetch and parse the page, 3 s for the AI step.
+- **The rest is waiting for the free tier.** Each request is about 7,000 of the 8,000 tokens Groq allows per minute, so back-to-back pages wait for the next minute. The client waits automatically (up to 60 s, three times) rather than failing.
+- Fetching, parsing, verification and saving never took more than 3 s.
 
 ## Sample output
 
@@ -254,7 +279,8 @@ Without an API key, the recorded answers are replayed; pages are still scraped a
 cd server && npm install && npm run setup
 node src/run-import-batch.js https://www.zoho.com/crm/ https://www.zoho.com/books/ https://www.zoho.com/desk/ \
   https://www.atlassian.com/software/jira https://www.atlassian.com/software/confluence \
-  https://www.odoo.com/app/crm https://www.odoo.com/app/inventory https://www.hubspot.com/products/crm https://linear.app/
+  https://www.odoo.com/app/crm https://www.odoo.com/app/inventory https://www.hubspot.com/products/crm https://linear.app/ \
+  https://www.zendesk.com/service/ https://trello.com/home
 ```
 
 If a vendor has changed a page since 13 Nov 2026, values it no longer shows are dropped, so a replay can only fill **fewer** fields than reported here, never more.

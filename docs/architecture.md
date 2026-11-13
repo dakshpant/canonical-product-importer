@@ -79,3 +79,18 @@ All calls go through [`client/src/services/api.js`](../client/src/services/api.j
 ## Data model
 
 See [`prisma/schema.prisma`](../server/prisma/schema.prisma). List fields (`tags`, `features` and so on) are stored as JSON arrays because SQLite has no array type. Statuses are strings validated in code ([`constants/status.js`](../server/src/constants/status.js)), because SQLite has no enums in Prisma.
+
+## Testing
+
+`cd server && npm test` runs 120 tests in [`server/tests/unit/`](../server/tests/unit) with Node's built-in test runner (`node:test`), no extra framework. They run offline: no network, no database, no API key.
+
+| Technique | Used for |
+| --- | --- |
+| **Fake LLM client** (`{ model, complete() }` returning scripted answers) | The trust boundary, retries and rate-limit handling, record/replay |
+| **Pages built in the test** (HTML strings) | HTML extraction, the LLM input, verification against the page |
+| **Local HTTP servers on 127.0.0.1** (with the SSRF guard mocked for that file only) | robots.txt, redirects, HTTP errors, thin and JavaScript-only pages |
+| **Pure functions split out of the services** (`proposal-update.js`, `identifiers.js`, the edit validator) | Refresh rules, admin-edit rules and SKU generation, tested without a database |
+| **Temporary folders** | Record/replay files, deleted after each test |
+| **Literal IP addresses** | The SSRF guard, with no DNS needed |
+
+What each file covers, and the manual scripts in `server/tests/manual/` (internet or database needed), are listed in the README's [Testing](../README.md#testing) section.

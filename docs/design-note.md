@@ -27,7 +27,7 @@
 
 ## What the test run showed
 
-On 8 real pages the app filled **11.9 of 19** fields per product and left **10.1 of 25** for the admin. No value was invented, but some kept values were poor (lower-case `jira`, a page title as the name) and some true values were lost to rewording. `industry` and `skills` were never filled. See the [results report](results-report.md).
+On 8 real pages the app filled **12.1 of 19** fields per product and left **9.9 of 25** for the admin, taking about 6 seconds per page when the free AI tier isn't throttling. No value was invented, but some kept values were poor (lower-case `jira`, a page title as the name) and some true values were lost to rewording. `industry` and `skills` were never filled. See the [results report](results-report.md).
 
 ## What I would build next for the admin
 

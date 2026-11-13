@@ -4,6 +4,8 @@ An inventory admin pastes product URLs. The backend scrapes each page, maps what
 
 The aim is to turn the admin's job from typing ~25 fields per product into checking pre-filled fields against their source.
 
+**Demo (5 min):** [watch on Google Drive](https://drive.google.com/file/d/1pyOVC6qN9wTARpyxR_0YuinZegJ6Uryt/view?usp=drive_link) · **Results:** [docs/results-report.md](docs/results-report.md) · **Design note:** [docs/design-note.md](docs/design-note.md)
+
 ---
 
 ## Project status
@@ -25,7 +27,7 @@ The aim is to turn the admin's job from typing ~25 fields per product into check
 | Retries for blocked, timed-out and temporary scrape errors | ⬜ Not done. LLM calls retry; a failed page fetch is not retried but fails visibly with its reason (see [Known limits](#known-limits)) |
 | Running without an API key (record and replay) | ✅ Done. 12 URLs recorded; clean-clone test passed with no key |
 | Results run on 8 real pages | ✅ Run. Manual timings and ground truth still to add. See [docs/results-report.md](docs/results-report.md) |
-| Demo recording | ✅ [Watch the demo](DEMO_LINK) (5 min) |
+| Demo recording | ✅ [Watch the demo](https://drive.google.com/file/d/1pyOVC6qN9wTARpyxR_0YuinZegJ6Uryt/view?usp=drive_link) (5 min) |
 | Clean-clone test (README steps only, no API key) | ✅ Passed |
 
 ---

@@ -40,7 +40,7 @@ The runtime system prompt is maintained in `server/src/services/ai/system.prompt
 - **The runtime model returned an answer that failed validation.** For Zoho Books, one quoted source was over 1,000 characters, so the whole answer was rejected (`LLM_INVALID_OUTPUT`) and nothing was saved.
 - **The runtime model's kept values were sometimes poor.** Jira's name came back as `jira` and Zoho Books' as its page title. They are on the page, so they pass verification; the admin corrects them on the Review screen. These are counted honestly in the results report.
 - **AI coding advice that was wrong.** Claude Code told me to move the backend to port 5000. On macOS that port belongs to AirPlay Receiver, so every API call from the frontend returned 403. I traced it with `lsof`, and the project now uses 5001.
-- **AI-written code with a bug I caught in testing.** The first version of the recording client saved every answer from Groq, including ones that then failed validation, so an invalid answer overwrote a good recording. I found it when replaying Zoho Books without a key failed.
+- **AI-written code with a bug I caught in testing.** The first version of the recording client saved every answer from Groq, including ones that then failed validation, so an invalid answer overwrote a good recording. I found it when replaying Zoho Books without a key failed. The recording client now saves only answers that pass validation; in the next run Pipedrive's invalid answer was correctly not saved.
 
 ## 5. Responsibility
 
