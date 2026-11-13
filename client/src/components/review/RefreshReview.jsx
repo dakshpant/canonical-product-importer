@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react'
 import { SCRAPED_FIELDS, formatValue, isEmpty, sameValue, toList } from '../../utils/fields.js'
 import { formatDateTime } from '../../utils/format.js'
 import { Badge } from '../common/StatusBadge.jsx'
-import { Alert, Button, Card } from '../common/ui.jsx'
+import { Button, Card } from '../common/ui.jsx'
+import { useToast } from '../common/toast-context.js'
 import { EvidenceQuote } from './Evidence.jsx'
 
 /**
@@ -36,17 +37,16 @@ export default function RefreshReview({ product, proposal, onResolve, disabledRe
     Object.fromEntries(changed.map(({ field, current }) => [field.name, isEmpty(current) ? 'proposed' : 'current'])),
   )
   const [busy, setBusy] = useState(null)
-  const [error, setError] = useState(null)
+  const toast = useToast()
 
   const takeNewCount = Object.values(choices).filter((c) => c === 'proposed').length
 
   async function submit(decisions, kind) {
     setBusy(kind)
-    setError(null)
     try {
       await onResolve(proposal.id, decisions)
     } catch (e) {
-      setError(e.message)
+      toast.error(e.message)
       setBusy(null)
     }
   }
@@ -122,7 +122,6 @@ export default function RefreshReview({ product, proposal, onResolve, disabledRe
           )}
         </div>
       </div>
-      {error && <Alert tone="danger" className="mx-5 mb-4">{error}</Alert>}
     </Card>
   )
 }

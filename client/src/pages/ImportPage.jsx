@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
 
 import { Alert, Button, Card, Loading, PageHeader } from '../components/common/ui.jsx'
 import BatchProgress from '../components/imports/BatchProgress.jsx'
+import { useToast } from '../components/common/toast-context.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { api } from '../services/api.js'
 import { plural } from '../utils/format.js'
@@ -23,7 +24,7 @@ export default function ImportPage() {
 
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState(null)
+  const toast = useToast()
 
   const urls = useMemo(() => parseUrls(text), [text])
 
@@ -32,13 +33,13 @@ export default function ImportPage() {
     if (urls.length === 0) return
 
     setSubmitting(true)
-    setSubmitError(null)
     try {
       const batch = await api.createImport(urls)
       setText('')
       setSearchParams({ batch: batch.id })
+      toast.success(`Import started: ${plural(urls.length, 'URL')}.`)
     } catch (error) {
-      setSubmitError(error.message)
+      toast.error(error.message)
     } finally {
       setSubmitting(false)
     }
@@ -69,8 +70,6 @@ export default function ImportPage() {
               />
               <p className="mt-1.5 text-xs text-stone-500">One URL per line. Public pages only; robots.txt is respected.</p>
             </div>
-
-            {submitError && <Alert tone="danger">{submitError}</Alert>}
 
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-stone-500">{urls.length > 0 ? plural(urls.length, 'URL') : 'No URLs yet'}</span>

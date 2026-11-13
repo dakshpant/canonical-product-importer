@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import StatusBadge from '../components/common/StatusBadge.jsx'
 import { Alert, Button, Card, Loading } from '../components/common/ui.jsx'
+import { useToast } from '../components/common/toast-context.js'
 import FieldRow from '../components/review/FieldRow.jsx'
 import RefreshReview from '../components/review/RefreshReview.jsx'
 import { useAsync } from '../hooks/useAsync.js'
@@ -60,8 +61,6 @@ export default function ProductReviewPage() {
       ],
     }
   }, [productId, proposalId])
-  // Lives here so it survives the editor remounting after a save.
-  const [message, setMessage] = useState(null)
 
   if (loading && !product) return <Loading />
   if (error && !product) {
@@ -78,14 +77,15 @@ export default function ProductReviewPage() {
       key={`${product.id}-${product.updated_at}`}
       product={product}
       reload={reload}
-      message={message}
-      setMessage={setMessage}
     />
   )
 }
 
-function ProductEditor({ product, reload, message, setMessage }) {
+function ProductEditor({ product, reload }) {
   const navigate = useNavigate()
+  // Action results pop up and close themselves (they outlive the editor
+  // remounting after a save, because the provider sits above it).
+  const toast = useToast()
   const saved = useMemo(() => toFormValues(product), [product])
   const [values, setValues] = useState(saved)
   const [busy, setBusy] = useState(null)
@@ -121,13 +121,12 @@ function ProductEditor({ product, reload, message, setMessage }) {
 
   async function run(kind, action, successText) {
     setBusy(kind)
-    setMessage(null)
     try {
       await action()
       await reload({ silent: true })
-      if (successText) setMessage({ tone: 'success', text: successText })
+      if (successText) toast.success(successText)
     } catch (e) {
-      setMessage({ tone: 'danger', text: e.message })
+      toast.error(e.message)
     } finally {
       setBusy(null)
     }
@@ -159,19 +158,18 @@ function ProductEditor({ product, reload, message, setMessage }) {
 
   async function refresh() {
     setBusy('refresh')
-    setMessage(null)
     try {
       const batch = await api.createImport([sourceUrl])
       navigate(`/import?batch=${batch.id}`)
     } catch (e) {
-      setMessage({ tone: 'danger', text: e.message })
+      toast.error(e.message)
       setBusy(null)
     }
   }
 
   const resolveProposal = async (proposalId, decisions) => {
     await api.reviewProposal(proposalId, decisions)
-    setMessage({ tone: 'success', text: 'Refresh applied. Values you chose to keep were left untouched.' })
+    toast.success('Refresh applied. Values you chose to keep were left untouched.')
     await reload({ silent: true })
   }
 
@@ -232,7 +230,6 @@ function ProductEditor({ product, reload, message, setMessage }) {
         </div>
       </div>
 
-      {message && <Alert tone={message.tone} className="mb-6">{message.text}</Alert>}
       <StatusExplainer status={product.status} missing={missing} />
 
       {pendingProposal && (
