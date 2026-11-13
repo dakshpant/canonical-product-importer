@@ -65,6 +65,12 @@ const MAX_RETRY_AFTER_MS = 60_000; // longer rate-limit waits fail the record in
 const MAX_USER_CONTENT_CHARS = 10_000;
 const MIN_PAGE_TEXT_CHARS = 3_000;
 
+// A request can still exceed the per-minute token limit (the prompt is
+// ~3.5k tokens and page text varies). Groq then answers 413, and we retry
+// with less page text: 60%, then 36% of the normal amount.
+const INPUT_SHRINK_FACTOR = 0.6;
+const MAX_INPUT_SHRINKS = 2;
+
 // Missing any of these makes the import record PARTIAL (it is still saved).
 export const REQUIRED_FIELDS = ["name", "category", "short_description"];
 
@@ -78,14 +84,19 @@ function truncateAtLine(text, maxLength) {
   return text.slice(0, cut > 0 ? cut : maxLength);
 }
 
-/** Chat messages from the scraper's bounded input. Raw HTML is never sent. */
-export function buildExtractionMessages(input) {
+/**
+ * Chat messages from the scraper's bounded input. Raw HTML is never sent.
+ * textScale (0–1) sends less page text, used when a request is too large.
+ */
+export function buildExtractionMessages(input, { textScale = 1 } = {}) {
   const metadata = Object.fromEntries(
     METADATA_KEYS.map((key) => [key, input.metadata?.[key] ?? null]),
   );
   const jsonLd = input.jsonLdProducts ?? [];
   const fixedChars = JSON.stringify(metadata).length + JSON.stringify(jsonLd).length;
-  const textBudget = Math.max(MIN_PAGE_TEXT_CHARS, MAX_USER_CONTENT_CHARS - fixedChars);
+  const textBudget = Math.floor(
+    Math.max(MIN_PAGE_TEXT_CHARS, MAX_USER_CONTENT_CHARS - fixedChars) * textScale,
+  );
   const fullText = input.pageText?.text ?? "";
   const pageText = truncateAtLine(fullText, textBudget);
 
@@ -185,7 +196,27 @@ export async function extractProduct(input, _record, options = {}) {
   const client = options.client ?? createLlmClient(input.requestedUrl ?? input.url);
   const sleep = options.sleep ?? defaultSleep;
 
-  const proposed = await requestValidOutput(client, buildExtractionMessages(input), sleep);
+  // Too large for the token limit: retry with less page text. The answer is
+  // still verified against the FULL page below, so trimming can only mean
+  // fewer values filled, never invented ones.
+  let textScale = 1;
+  let proposed;
+  for (let shrinks = 0; ; shrinks += 1) {
+    try {
+      proposed = await requestValidOutput(
+        client,
+        buildExtractionMessages(input, { textScale }),
+        sleep,
+      );
+      break;
+    } catch (error) {
+      if (error?.code !== AI_ERROR.LLM_INPUT_TOO_LARGE || shrinks >= MAX_INPUT_SHRINKS) {
+        throw error;
+      }
+      textScale *= INPUT_SHRINK_FACTOR;
+    }
+  }
+
   const { product, sources, discarded } = verifyExtraction(proposed, input);
 
   if (!hasAnyValue(product)) {
@@ -208,6 +239,8 @@ export async function extractProduct(input, _record, options = {}) {
         model: client.model ?? null,
         page_url: input.url,
         requested_url: input.requestedUrl ?? input.url,
+        // < 1 when the page text had to be cut to fit the token limit.
+        page_text_scale: Number(textScale.toFixed(2)),
         extracted_at: new Date().toISOString(),
       },
     },

@@ -160,3 +160,21 @@
 **Reason:** A single admin and a small catalogue. One command creates the database. A queue (BullMQ, Redis) would add setup steps without helping at this scale.
 
 **Trade-offs:** If the server restarts mid-batch, records left in `PROCESSING` are not resumed automatically. This is acceptable for a demo; a startup sweep that resets them to `PENDING` is the planned fix.
+
+
+### Decision: Record and replay LLM answers for keyless runs
+
+**Status:** Decided
+
+**Choice:** `LLM_MODE` picks the LLM client: live Groq, record (live, plus save the answer per URL), or replay (use the saved answer). With the default `auto`, the app is live when a key is set and replays otherwise.
+
+**Context:** The brief asks for "a way to run the project without an API key, for example recorded responses, so we can try it ourselves".
+
+**Decision:** Record only the model's answer, keyed on the URL the admin pasted. Everything else still runs for real: the page is scraped live, the answer is validated, and every value is verified against the live page. Replayed records carry `recorded:<model>` so the stored data says where the proposal came from.
+
+**Trade-offs:**
+- A reviewer can try the full flow with no key, but only on the recorded URLs. Other URLs fail with a clear `NO_RECORDING` message.
+- If a vendor page has changed since recording, values it no longer shows are dropped by the verifier. That's the safe direction: a stale recording can lose values, but it can never add them.
+- Recording is explicit (`LLM_MODE=record`), so normal live use never rewrites committed files.
+
+**Alternatives considered:** A local model through Ollama (rejected: a large download and extra setup for the reviewer); seed data only (rejected: the reviewer couldn't try an import).

@@ -72,6 +72,7 @@ const ERROR_HINTS = {
   LLM_INVALID_JSON: 'The AI returned unreadable output; nothing was saved.',
   LLM_INVALID_OUTPUT: 'The AI output failed validation; nothing was saved.',
   NO_PRODUCT_DATA: 'No product information backed by the page could be found.',
+  NO_RECORDING: 'No API key on the server and no recorded response for this URL. Use a URL listed in the README, or add a Groq key.',
 }
 
 export function parseError(errorMessage) {

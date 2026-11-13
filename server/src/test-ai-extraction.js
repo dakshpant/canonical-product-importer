@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { GROQ_MODEL } from "./config/env.js";
 import { buildProductExtractionInput } from "./services/scraper/product-extraction-input.service.js";
 import {
   AI_ERROR,
@@ -651,7 +652,9 @@ test("client sends the configured model with strict json_schema output", async (
 
   assert.equal(url, "https://api.groq.com/openai/v1/chat/completions");
   assert.equal(init.headers.Authorization, `Bearer ${FAKE_KEY}`);
-  assert.equal(body.model, "openai/gpt-oss-120b");
+  // The configured model (GROQ_MODEL, default openai/gpt-oss-120b), so the
+  // test doesn't depend on what a local .env happens to set.
+  assert.equal(body.model, GROQ_MODEL);
   assert.equal(body.response_format.type, "json_schema");
   assert.equal(body.response_format.json_schema.strict, true);
   assert.ok(init.signal, "request has a timeout signal");
@@ -810,6 +813,47 @@ test("request larger than the token limit (HTTP 413) -> LLM_INPUT_TOO_LARGE, not
     assert.equal(error.retryable, false);
     return true;
   });
+});
+
+// A page with lots of text, so the page-text budget actually bites.
+const longInput = buildProductExtractionInput(
+  `<!doctype html><html><head><title>Acme CRM</title></head><body><main>
+<h1>Acme CRM</h1><p>Acme CRM is a cloud-based customer relationship management platform for small businesses.</p>
+${Array.from({ length: 400 }, (_, i) => `<p>Detail line ${i} about contacts, deals and reports.</p>`).join("\n")}
+</main></body></html>`,
+  PAGE_URL,
+);
+const pageTextSent = (messages) => JSON.parse(messages[1].content).page_text.length;
+const tooLarge = () =>
+  new AiExtractionError(AI_ERROR.LLM_INPUT_TOO_LARGE, "Request too large for model");
+
+test("too large for the token limit -> retried with less page text, then succeeds", async () => {
+  const client = fakeClient(tooLarge(), tooLarge(), goodOutput());
+  const result = await extractProduct(longInput, null, { client, sleep: noSleep });
+
+  assert.equal(client.calls.length, 3);
+  const [full, reduced, smallest] = client.calls.map(pageTextSent);
+  assert.ok(reduced < full * 0.65, `second request should send ~60% (${reduced} vs ${full})`);
+  assert.ok(smallest < reduced * 0.65, `third request should send ~36% (${smallest} vs ${reduced})`);
+  assert.equal(result.data.extraction.page_text_scale, 0.36);
+  // Still verified against the FULL page: values from the cut-off part are kept.
+  assert.equal(result.data.product.name, "Acme CRM");
+});
+
+test("still too large after two reductions -> LLM_INPUT_TOO_LARGE", async () => {
+  const client = fakeClient(tooLarge());
+  await rejectsWithCode(
+    extractProduct(longInput, null, { client, sleep: noSleep }),
+    AI_ERROR.LLM_INPUT_TOO_LARGE,
+  );
+  assert.equal(client.calls.length, 3, "1 call + 2 reductions");
+});
+
+test("a normal-size request is sent once with all its page text", async () => {
+  const client = fakeClient(goodOutput());
+  const result = await extractProduct(longInput, null, { client, sleep: noSleep });
+  assert.equal(client.calls.length, 1);
+  assert.equal(result.data.extraction.page_text_scale, 1);
 });
 
 test("key: value style quotes from metadata / JSON-LD are accepted", async () => {

@@ -20,7 +20,7 @@ The aim is to turn the admin's job from typing ~25 fields per product into check
 | Frontend screens (Import, Product list, Review, Import summary, Refresh) | ✅ Built. All screens are connected to the API |
 | HTTP API | ✅ Done. See [docs/api-contract.md](docs/api-contract.md) |
 | Retries for blocked, timed-out and temporary scrape errors | ⬜ To do (LLM calls already retry) |
-| Running without an API key (recorded responses) | ⬜ To do |
+| Running without an API key (record and replay) | ✅ Built. Recordings for the test URLs still to be made (needs a key once) |
 | Seed products for the refresh demo | ⬜ To do |
 | Results run on 8 real pages | ⬜ To do. See [docs/results-report.md](docs/results-report.md) |
 | Demo recording | ⬜ To do |
@@ -31,7 +31,7 @@ The aim is to turn the admin's job from typing ~25 fields per product into check
 
 - **Node.js 22.18 or newer** (tested on 24.x). The backend imports Prisma's generated TypeScript client directly, which needs Node's built-in type stripping.
 - npm
-- A free **Groq API key** for live extraction ([console.groq.com](https://console.groq.com)). The unit tests do not need one.
+- **No API key needed** to try the app: without one, it replays recorded LLM answers (see below). A free [Groq](https://console.groq.com) key enables live extraction on any URL.
 
 ## Setup and run
 
@@ -45,10 +45,34 @@ cd server && npm install && npm run setup && npm run dev
 cd client && npm install && npm run dev
 ```
 
-For live extraction, put your key in `server/.env` (created by `npm run setup`) and restart the backend:
+### Run without an API key
+
+With no key, the app **replays recorded LLM answers** for the URLs below. Import any of them on the Import screen:
+
+- https://www.zoho.com/crm/
+- https://www.zoho.com/books/
+- https://www.zoho.com/desk/
+- https://www.atlassian.com/software/jira
+- https://www.atlassian.com/software/confluence
+- https://www.odoo.com/app/crm
+- https://www.odoo.com/app/inventory
+
+Recorded on 13 Nov 2026 with `openai/gpt-oss-20b` (the free-tier daily limit for `gpt-oss-120b` had been reached). The answers are in [`server/recordings/`](server/recordings).
+
+Only the LLM's proposal is replayed. The page is still **scraped live**, and every value is still **checked against the live page**, so a recording can't put anything on a product that the page doesn't show. A URL without a recording fails with `NO_RECORDING` and a plain message. Replayed records show `recorded:<model>` as their model.
+
+### Run with a Groq key (any URL)
+
+Put your key in `server/.env` (created by `npm run setup`) and restart the backend:
 
 ```bash
 GROQ_API_KEY=gsk_...
+```
+
+To add recordings for new URLs (one live call each, saved to `server/recordings/`):
+
+```bash
+cd server && LLM_MODE=record node src/run-import-batch.js <url> [url ...]
 ```
 
 ### Run the tests
@@ -163,7 +187,8 @@ See [`server/.env.example`](server/.env.example). `.env` is git-ignored; never c
 | `DATABASE_URL` | `file:./dev.db` | SQLite database file |
 | `PORT` | `5001` | API port. The Vite dev server proxies `/api` here. Not 5000: macOS AirPlay Receiver uses it |
 | `NODE_ENV` | `development` | Runtime mode |
-| `GROQ_API_KEY` | (empty) | Groq key for live extraction. Never logged; removed from error messages |
+| `GROQ_API_KEY` | (empty) | Groq key for live extraction. Never logged; removed from error messages and recordings |
+| `LLM_MODE` | `auto` | `auto`: key → live, no key → replay. `live`, `record` (live + save answers) or `replay` (never call Groq) |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq model |
 
 If you change `PORT`, start the frontend with `VITE_API_PROXY_TARGET=http://localhost:<port> npm run dev`.
@@ -195,7 +220,7 @@ If you change `PORT`, start the frontend with `VITE_API_PROXY_TARGET=http://loca
 ## Known limits
 
 - **JavaScript-only pages** are not supported. Fetching is plain HTTP, so client-rendered pages come back thin.
-- **Long pages** are cut to fit Groq's free-tier limit (~10,000 characters sent to the model). Content further down the page may be missed.
+- **Long pages** are cut to fit Groq's free-tier limit of 8,000 tokens per minute (~10,000 characters of page content per call). If Groq still answers "too large", the call is retried with 60%, then 36%, of the page text, and `extraction.page_text_scale` records how much was sent. Content further down a long page may be missed, but the answer is still verified against the full page.
 - **Matching is exact.** Paraphrased values are dropped by design, so some correct but reworded values are lost. The trade-off favours "no invented data" over "more fields filled".
 - **One image** per product (the canonical schema has a single set of image fields).
 - **Free-tier rate limits.** Large batches can hit Groq's per-minute limit. The client waits (up to 60 s, three times) before failing the record.
