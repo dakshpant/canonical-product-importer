@@ -15,6 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { GROQ_API_KEY, LLM_MODE, LLM_RECORDINGS_DIR } from "../../config/env.js";
+import { validateProductExtraction } from "../../validators/product-extraction.validator.js";
 import { AI_ERROR, AiExtractionError, redact } from "./errors.js";
 import { createGroqClient } from "./groq.client.js";
 
@@ -69,7 +70,21 @@ export function createReplayClient(url, { dir = DEFAULT_RECORDINGS_DIR } = {}) {
   };
 }
 
-/** Calls the live client, then saves its answer for `url`. */
+// Only an answer that passes the same validation as a live answer is worth
+// keeping: an invalid one would make every replay of that URL fail.
+function isValidAnswer(content) {
+  try {
+    const text = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    return validateProductExtraction(JSON.parse(text)).success;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Calls the live client, then saves its answer for `url`, but only if the
+ * answer is valid, so a bad answer never overwrites a good recording.
+ */
 export function createRecordingClient(
   url,
   { dir = DEFAULT_RECORDINGS_DIR, live = createGroqClient(), apiKey = GROQ_API_KEY } = {},
@@ -81,6 +96,9 @@ export function createRecordingClient(
     async complete(messages) {
       // A failed call throws here, so nothing is written for it.
       const content = await live.complete(messages);
+      // An invalid answer is returned (the pipeline retries or reports it)
+      // but never saved.
+      if (!isValidAnswer(content)) return content;
       mkdirSync(path.dirname(file), { recursive: true });
       // Only the model's answer is stored: never request headers or the key.
       const recording = {
