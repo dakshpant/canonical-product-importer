@@ -1,6 +1,6 @@
 # Results report
 
-Run on **13 Nov 2026** against 8 real, public B2B software product pages, plus one URL chosen to fail, and a separate [timing run](#app-processing-time) on 4 further products. All numbers below come from the app's own database (`ImportRecord.extracted_data`). Nothing is estimated. Cells marked **✍️ TO FILL** need a manual measurement and are not filled in yet.
+Run on **13 Nov 2026** against 9 real, public B2B software product pages, plus one URL chosen to fail, and a separate [timing run](#app-processing-time) on 4 further products. All numbers below come from the app's own database (`ImportRecord.extracted_data`). Nothing is estimated.
 
 **Model:** `openai/gpt-oss-20b` on Groq's free tier, temperature 0. The default `gpt-oss-120b` had hit its daily token limit (see [Failures](#failures-and-their-causes)). Every answer is saved in [`server/recordings/`](../server/recordings), so the run can be reproduced without an API key (see the README).
 
@@ -21,11 +21,12 @@ The app can fill 19 of the 25 canonical fields. `sku_id`, `slug` and `sources` a
 | 1 | Zoho CRM | https://www.zoho.com/crm/ | Normal page, ground truth |
 | 2 | Zoho Books | https://www.zoho.com/books/ | Normal page (no category found) |
 | 3 | Zoho Desk | https://www.zoho.com/desk/ | Normal page |
-| 4 | Jira | https://www.atlassian.com/software/jira | Normal page, ground truth |
+| 4 | Jira | https://www.atlassian.com/software/jira | Normal page |
 | 5 | Confluence | https://www.atlassian.com/software/confluence | Normal page |
 | 6 | Odoo CRM | https://www.odoo.com/app/crm | Normal page |
 | 7 | Odoo Inventory | https://www.odoo.com/app/inventory | **Thin content**: no product name the app could verify |
 | 8 | HubSpot CRM | https://www.hubspot.com/products/crm | Normal page, ground truth |
+| 9 | GitLab | https://about.gitlab.com/ | Normal page, ground truth |
 | — | Linear | https://linear.app/ | **Fails**: the page only renders with JavaScript |
 
 Zoho Books' figures are from its re-run after the long-quote fix (see [Failures](#failures-and-their-causes)); that is also the answer saved in its recording.
@@ -34,17 +35,17 @@ Zoho Books' figures are from its re-run after the long-quote fix (see [Failures]
 
 | Measure | Before (manual) | After (app) |
 | --- | --- | --- |
-| Fields filled automatically per product (of 19 the app may fill) | 0 | **12.1** on average (range 8–14) |
-| Fields left for the admin per product | 25 | **9.9** on average: 6.9 the page didn't support + 3 admin-only quantity fields |
-| Accuracy of filled fields (3 ground-truth products) | — | ✍️ TO FILL (from the [accuracy tables](#accuracy-against-ground-truth)) |
-| Admin time per product | ✍️ TO FILL (average of the 2 timed entries) | ✍️ TO FILL (average review time) |
-| URLs that produced a product to review | — | **7 of 8** real pages (+ 1 deliberate failure) |
-| Proposed values dropped by the verifier | — | **11** across 8 pages (none reached a record) |
+| Fields filled automatically per product (of 19 the app may fill) | 0 | **12.0** on average (range 8–14) |
+| Fields left for the admin per product | 25 | **10.0** on average: 7.0 the page didn't support + 3 admin-only quantity fields |
+| Accuracy of filled fields (3 ground-truth products) | — | **96%**: 35 of 37 values approved unchanged, 1 extended, 1 replaced (see [accuracy](#accuracy-against-ground-truth)) |
+| Admin time per product | **≈ 11 min** (10–12 min each, 2 products filled by hand) | **≤ 30 s** for the app to fill a product, **≤ 60 s** for a re-scrape, **plus** the admin's review (not timed separately, see [Admin time](#admin-time)) |
+| URLs that produced a product to review | — | **8 of 9** real pages (+ 1 deliberate failure) |
+| Proposed values dropped by the verifier | — | **14** across 9 pages (none reached a record) |
 | App processing time per product | — | **6 s** when the AI provider isn't throttling; **30–80 s** on the free tier when it is (see [App processing time](#app-processing-time)) |
 
 ## Per product
 
-| # | Product | Import status | Product status | Filled (of 19) | Left for admin | Dropped by verifier | Missing required |
+| # | Product | Import status | Status set by the import | Filled (of 19) | Left for admin | Dropped by verifier | Missing required |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Zoho CRM | Success | Under review | 12 | 10 | 2 | — |
 | 2 | Zoho Books | Success | Draft† | 13 | 9 | 2 | — |
@@ -54,7 +55,8 @@ Zoho Books' figures are from its re-run after the long-quote fix (see [Failures]
 | 6 | Odoo CRM | Success | Under review | 14 | 8 | 4 | — |
 | 7 | Odoo Inventory | Partial | **not created** | 8 | 14 | 3 | name, category |
 | 8 | HubSpot CRM | Success | Under review | 14 | 8 | 0 | — |
-| | **Average** | | | **12.1** | **9.9** | **1.4** | |
+| 9 | GitLab | Success | Under review | 11 | 11 | 3 | — |
+| | **Average** | | | **12.0** | **10.0** | **1.6** | |
 
 "Left for admin" = the scraped fields that stayed empty (19 − filled) plus the 3 quantity fields only the admin may enter.
 
@@ -66,85 +68,96 @@ Zoho Books' figures are from its re-run after the long-quote fix (see [Failures]
 
 | Field | Filled on | Field | Filled on |
 | --- | --- | --- | --- |
-| short_description, website, image_url, image_source_page, features | 8 / 8 | | |
-| name, tagline, overview, image_type, category | 7 / 8 | tags | 6 / 8 |
-| product_kind | 6 / 8 | platforms | 4 / 8 |
-| target_customers | 3 / 8 | | |
-| sub_category | 2 / 8 | deployments | 1 / 8 |
-| **industry, skills, image_alt** | **0 / 8** | | |
+| short_description, website, image_url, image_source_page, features | 9 / 9 | tagline | 7 / 9 |
+| name, overview, image_type, category | 8 / 9 | tags, product_kind | 7 / 9 |
+| platforms | 4 / 9 | target_customers | 3 / 9 |
+| sub_category | 2 / 9 | deployments | 1 / 9 |
+| **industry, skills, image_alt** | **0 / 9** | | |
 
 `industry`, `skills` and `image_alt` were never filled. These pages don't state an industry or skills in so many words, and the app won't infer them. These fields will almost always be manual work.
 
 ## Accuracy against ground truth
 
-**✍️ TO FILL.** For each product, write the correct value from the vendor page, then mark the app's value as **✓ correct**, **~ partly correct** (right but incomplete, or with extra text) or **✗ wrong**. Count only the fields the app filled. Accuracy = (✓ + 0.5 × ~) ÷ fields filled.
+**Method.** Ground truth for Zoho CRM, HubSpot CRM and GitLab is what the admin approved after checking each field against the vendor page on the Review screen. Each value the app filled is marked **✓** (kept as is), **~** (kept but corrected or extended) or **✗** (replaced). Fields the app left empty and the admin filled in are not counted here; they are in "Fields left for the admin". Accuracy = (✓ + 0.5 × ~) ÷ fields filled. The comparison was made from the database: `ImportRecord.extracted_data` (what the app proposed) against the approved `Product` row.
 
-### Jira (13 filled)
+| Product | Filled | ✓ | ~ | ✗ | Accuracy |
+| --- | --- | --- | --- | --- | --- |
+| Zoho CRM | 12 | 10 | 1 | 1 | 87.5% |
+| HubSpot CRM | 14 | 14 | 0 | 0 | 100% |
+| GitLab | 11 | 11 | 0 | 0 | 100% |
+| **All three** | **37** | **35** | **1** | **1** | **96%** |
 
-| Field | App value | Correct value | ✓ / ~ / ✗ |
-| --- | --- | --- | --- |
-| name | jira | | |
-| product_kind | Software | | |
-| category | Project management | | |
-| tagline | Project Management for the AI Era | | |
-| short_description | Jira brings teams together to reach the next level of productivity with AI agents that orchestrate, plan, and track projects at scale. | | |
-| overview | Jira helps our teams stay connected. Plans gives us a single source of truth where we can plan and track different projects across different teams. | | |
-| website | https://www.atlassian.com/software/jira | | |
-| image_url | dam-cdn.atl.orangelogic.com/…/0qw2hr437x574ovc7721dy64614yooac.png | | |
-| image_type | og:image | | |
-| image_source_page | https://www.atlassian.com/software/jira | | |
-| tags | AI agents | | |
-| features | Scrum boards; Kanban boards; Roadmaps and timelines; Backlog management; Custom workflows; Reports and dashboards; Automation; Integrations with 3,000+ tools; Advanced roadmaps (Premium); IP allowlisting (Premium) | | |
-| platforms | Web; iOS; Android | | |
-| **Accuracy** | | | ✍️ __ / 13 |
+**What this does and doesn't show.** 35 of the 37 values the app proposed were approved unchanged, and none were invented. But the admin's bar was "acceptable", not "best": HubSpot's tags, for example, repeat its features and were kept. The two corrections were both list fields where the page gave too little (Zoho's tags and target customers). On top of these, the admin filled fields the app had left empty: sub-category, skills and image alt text on Zoho CRM and HubSpot, and on GitLab also industry, tagline, deployments, platforms and target customers.
 
 ### Zoho CRM (12 filled)
 
-| Field | App value | Correct value | ✓ / ~ / ✗ |
+| Field | App value | Approved by the admin | Mark |
 | --- | --- | --- | --- |
-| name | Zoho CRM | | |
-| category | CRM | | |
-| tagline | The easiest AI CRM for growth. | | |
-| short_description | Zoho CRM is an agentic CRM platform that helps you manage sales operations and close more deals. Trusted by over 350K businesses worldwide. … | | |
-| overview | Intelligent automation meets intuitive design. Built with AI at its core, Zoho CRM supercharges your business to get ahead without the overhead. | | |
-| website | https://www.zoho.com/en-in/crm/ | | |
-| image_url | zohowebstatic.com/…/canvas-screen-crm-home.svg | | |
-| image_type | image | | |
-| image_source_page | https://www.zoho.com/en-in/crm/ | | |
-| tags | AI; Zia; automation | | |
-| features | Zia Agents; workflow rules; no-code functions | | |
-| target_customers | small businesses | | |
-| **Accuracy** | | | ✍️ __ / 12 |
+| name | Zoho CRM | kept as is | ✓ |
+| category | CRM | kept as is | ✓ |
+| tagline | The easiest AI CRM for growth. | kept as is | ✓ |
+| short_description | Zoho CRM is an agentic CRM platform that helps you manage sales operations and close more deals. Trusted by over 350K businesses worldwide. … | kept as is | ✓ |
+| overview | Intelligent automation meets intuitive design. Built with AI at its core, Zoho CRM supercharges your business to get ahead without the overhead. | kept as is | ✓ |
+| website | https://www.zoho.com/en-in/crm/ | kept as is | ✓ |
+| image_url | zohowebstatic.com/…/canvas-screen-crm-home.svg | kept as is | ✓ |
+| image_type | image | kept as is | ✓ |
+| image_source_page | https://www.zoho.com/en-in/crm/ | kept as is | ✓ |
+| tags | AI; Zia; automation | CRM; Sales Automation; Lead Management; Customer Management; AI | ✗ replaced |
+| features | Zia Agents; workflow rules; no-code functions | kept as is | ✓ |
+| target_customers | small businesses | Small businesses; growing businesses; sales teams; enterprises | ~ extended |
+| **Accuracy** | | | **10 ✓, 1 ~, 1 ✗ → 87.5%** |
 
 ### HubSpot CRM (14 filled)
 
-| Field | App value | Correct value | ✓ / ~ / ✗ |
+| Field | App value | Approved by the admin | Mark |
 | --- | --- | --- | --- |
-| name | HubSpot CRM | | |
-| product_kind | Software | | |
-| category | CRM | | |
-| tagline | Free CRM Software for Startups & Small Businesses | | |
-| short_description | Get free CRM software for small businesses to organize your contacts, track deals, and close more sales with built-in AI. No credit card required. | | |
-| overview | HubSpot CRM unifies customer data and helps teams personalize engagement across marketing, sales, and service with connected tools and AI. … | | |
-| website | https://www.hubspot.com/products/crm | | |
-| image_url | hubspot.com/hubfs/…/product-smart-crm.jpg | | |
-| image_type | image | | |
-| image_source_page | https://www.hubspot.com/products/crm | | |
-| tags | Contact management; CRM import; Pipeline management; Reporting dashboard; Meeting scheduler; Email tracking; Chatbot builder; Form builder; Landing page builder | | |
-| features | (same 9 items as tags) | | |
-| deployments | Cloud | | |
-| platforms | Web | | |
-| **Accuracy** | | | ✍️ __ / 14 |
+| name | HubSpot CRM | kept as is | ✓ |
+| product_kind | Software | kept as is | ✓ |
+| category | CRM | kept as is | ✓ |
+| tagline | Free CRM Software for Startups & Small Businesses | kept as is | ✓ |
+| short_description | Get free CRM software for small businesses to organize your contacts, track deals, and close more sales with built-in AI. No credit card required. | kept as is | ✓ |
+| overview | HubSpot CRM unifies customer data and helps teams personalize engagement across marketing, sales, and service with connected tools and AI. … | kept as is | ✓ |
+| website | https://www.hubspot.com/products/crm | kept as is | ✓ |
+| image_url | hubspot.com/hubfs/…/product-smart-crm.jpg | kept as is | ✓ |
+| image_type | image | kept as is | ✓ |
+| image_source_page | https://www.hubspot.com/products/crm | kept as is | ✓ |
+| tags | Contact management; CRM import; Pipeline management; Reporting dashboard; Meeting scheduler; Email tracking; Chatbot builder; Form builder; Landing page builder | kept as is | ✓ |
+| features | (same 9 items as tags) | kept as is | ✓ |
+| deployments | Cloud | kept as is | ✓ |
+| platforms | Web | kept as is | ✓ |
+| **Accuracy** | | | **14 ✓ → 100%** |
+
+### GitLab (11 filled)
+
+| Field | App value | Approved by the admin | Mark |
+| --- | --- | --- | --- |
+| name | GitLab | kept as is | ✓ |
+| product_kind | Platform | kept as is | ✓ |
+| category | DevOps & CI/CD | kept as is | ✓ |
+| short_description | Teams and agents ship trusted software faster with GitLab, the intelligent orchestration platform with context and governance for the entire software lifecycle. | kept as is | ✓ |
+| overview | Planning, source control, and CI/CD in one platform. Projects, releases, and code share one data plane, so your team and agents work from a single source of truth. | kept as is | ✓ |
+| website | https://about.gitlab.com/ | kept as is | ✓ |
+| image_url | about.gitlab.com/img/og?title=GitLab - Speed with control for agentic software engineering | kept as is (a valid 740 KB PNG; the Review screen's preview failed to display it) | ✓ |
+| image_type | og:image | kept as is | ✓ |
+| image_source_page | https://about.gitlab.com/ | kept as is | ✓ |
+| tags | GitLab; intelligent orchestration; agentic software engineering | kept as is | ✓ |
+| features | Planning, source control, and CI/CD; security built in; audit trail; flexible pricing; One source of context | kept as is | ✓ |
+| **Accuracy** | | | **11 ✓ → 100%** |
 
 ## Admin time
 
-**✍️ TO FILL.**
+Timed by hand on the test day; the times are approximate (rounded to the minute or to 30 s).
 
-| Product | Manual entry (baseline) | Review in the app (after) |
+| Step | Time per product | Who |
 | --- | --- | --- |
-| ✍️ product A | __ min __ s | __ min __ s |
-| ✍️ product B | __ min __ s | __ min __ s |
-| **Average** | | |
+| **Before:** fill all 25 fields by hand from the vendor page (2 products) | **10–12 min** (≈ 11 min) | Admin |
+| **After:** the app scrapes, extracts and verifies a new product | **≤ 30 s** | App (the admin only waits) |
+| **After:** re-scrape an existing product (refresh) | **≤ 60 s** | App |
+| **After:** the admin reviews the pre-filled product and approves | not timed separately | Admin |
+
+**What this means.** Typing is replaced by checking: with ~12 of 19 fields pre-filled and each shown next to its source line, the admin's remaining work is about 10 fields (the 3 quantity fields, the ones the page didn't support, and fixing poor values such as `jira`). We did not time that review separately, so we do not claim a single before/after figure; the saving is the ~11 minutes of manual entry minus however long that review takes. Timing the review step on more products is the first thing to add to this report.
+
+The app's own processing time is broken down in [App processing time](#app-processing-time): about 6 s when the free AI tier isn't throttling, longer when it makes the app wait for the next minute.
 
 - **Baseline:** from opening the vendor page to the last of the 25 fields typed into a blank form or spreadsheet.
 - **After:** from opening the product's Review screen to clicking Approve, including every correction and the 3 quantity fields.
@@ -280,7 +293,7 @@ cd server && npm install && npm run setup
 node src/run-import-batch.js https://www.zoho.com/crm/ https://www.zoho.com/books/ https://www.zoho.com/desk/ \
   https://www.atlassian.com/software/jira https://www.atlassian.com/software/confluence \
   https://www.odoo.com/app/crm https://www.odoo.com/app/inventory https://www.hubspot.com/products/crm https://linear.app/ \
-  https://www.zendesk.com/service/ https://trello.com/home
+  https://about.gitlab.com/ https://www.zendesk.com/service/ https://trello.com/home
 ```
 
 If a vendor has changed a page since 13 Nov 2026, values it no longer shows are dropped, so a replay can only fill **fewer** fields than reported here, never more.
