@@ -6,6 +6,10 @@ async function assertRobotsAllowed(url) {
   const permission = await checkRobotsPermission(url);
 
   if (!permission.allowed) {
+    if (permission.reason === "HOST_NOT_ALLOWED") {
+      throw new ScrapeError(permission.reason, permission.error, { url, ...permission });
+    }
+
     throw new ScrapeError(
       permission.reason,
       `Scraping not permitted: ${permission.reason}`,

@@ -25,6 +25,11 @@ async function loadRobotsRules(origin) {
   try {
     response = await fetchResource(robotsUrl);
   } catch (error) {
+    // The host itself is unreachable or private: report that, not robots.txt.
+    if (error.code === "HOST_NOT_ALLOWED") {
+      return { kind: "deny", reason: "HOST_NOT_ALLOWED", robotsUrl, error: error.message };
+    }
+
     return {
       kind: "deny",
       reason: "ROBOTS_FETCH_FAILED",
@@ -69,7 +74,7 @@ async function getRobotsRules(origin) {
   const rules = await loadRobotsRules(origin);
 
   // Don't keep a temporary failure around for the whole TTL.
-  if (rules.reason !== "ROBOTS_FETCH_FAILED" && rules.reason !== "ROBOTS_HTTP_ERROR") {
+  if (!["ROBOTS_FETCH_FAILED", "ROBOTS_HTTP_ERROR", "HOST_NOT_ALLOWED"].includes(rules.reason)) {
     robotsCache.set(origin, { expiresAt: Date.now() + ROBOTS_CACHE_TTL, rules });
   }
 
