@@ -1,4 +1,4 @@
-import { fetchProductPage } from "./services/scraper/productPage.service.js";
+import { fetchProductPage } from "../../../src/services/scraper/productPage.service.js";
 
 async function main() {
   const urls = ["https://example.com/", "https://www.google.com/search"];

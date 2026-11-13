@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildProductExtractionInput } from "./services/scraper/product-extraction-input.service.js";
+import { buildProductExtractionInput } from "../../src/services/scraper/product-extraction-input.service.js";
 
 const sampleHtml = `
 <!DOCTYPE html>

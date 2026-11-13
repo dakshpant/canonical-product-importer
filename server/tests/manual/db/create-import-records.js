@@ -1,4 +1,4 @@
-import prisma from "./config/prisma.js";
+import prisma from "../../../src/config/prisma.js";
 
 try {
   // Create one batch containing two URL records

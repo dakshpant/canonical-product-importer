@@ -1,5 +1,5 @@
 
-import { validateProductExtraction } from "./validators/product-extraction.validator.js";
+import { validateProductExtraction } from "../../src/validators/product-extraction.validator.js";
 
 const result = validateProductExtraction({
   name: "Postman",
@@ -13,7 +13,6 @@ const result = validateProductExtraction({
   website: "https://www.postman.com/",
   image_url: null,
   image_alt: null,
-  image_type: null,
   image_source_page: null,
   tags: [],
   skills: [],

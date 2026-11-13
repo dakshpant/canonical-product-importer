@@ -1,14 +1,14 @@
 // Tests for admin edits (PATCH /api/products/:id) validation.
 // Pure logic only: no database, no network.
 //
-// Run: node --test src/test-product-update.js
+// Run: node --test tests/unit/product-update.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
   formatUpdateError,
   productUpdateSchema,
-} from "./validators/product-update.validator.js";
+} from "../../src/validators/product-update.validator.js";
 
 const parse = (input) => productUpdateSchema.safeParse(input);
 const errorOf = (input) => {

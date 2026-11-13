@@ -1,4 +1,4 @@
-import { checkRobotsPermission } from "./services/scraper/robot.service.js";
+import { checkRobotsPermission } from "../../../src/services/scraper/robot.service.js";
 
 async function main() {
   const urls = ["https://example.com/", "https://www.google.com/search"];

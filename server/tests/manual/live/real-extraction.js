@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 
-import { fetchProductPage } from "./services/scraper/productPage.service.js";
+import { fetchProductPage } from "../../../src/services/scraper/productPage.service.js";
 
-import { buildProductExtractionInput } from "./services/scraper/product-extraction-input.service.js";
+import { buildProductExtractionInput } from "../../../src/services/scraper/product-extraction-input.service.js";
 
 const url = "https://www.postman.com/";
 

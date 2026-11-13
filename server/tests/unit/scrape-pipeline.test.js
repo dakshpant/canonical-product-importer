@@ -1,14 +1,14 @@
 // End-to-end tests for the scrape stage (robots.txt -> fetch -> extract ->
 // content check), against local HTTP servers. No database, no internet.
 //
-// Run: node --experimental-test-module-mocks --test src/test-scrape-pipeline.js
+// Run: node --experimental-test-module-mocks --test tests/unit/scrape-pipeline.test.js
 import { test, mock, before, after } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 
 // Local servers are on 127.0.0.1, which the SSRF guard blocks on purpose.
 // Allow it for this test only.
-mock.module("./services/scraper/network-safety.js", {
+mock.module("../../src/services/scraper/network-safety.js", {
   exports: {
     resolvePublicAddress: async () => ({ address: "127.0.0.1", family: 4 }),
     isPublicUrl: async () => true,
@@ -16,9 +16,9 @@ mock.module("./services/scraper/network-safety.js", {
 });
 
 const { prepareExtractionInput, buildProductExtractionInput, MAX_JSON_LD_LENGTH } =
-  await import("./services/scraper/product-extraction-input.service.js");
+  await import("../../src/services/scraper/product-extraction-input.service.js");
 const { checkRobotsPermission, clearRobotsCache } = await import(
-  "./services/scraper/robot.service.js"
+  "../../src/services/scraper/robot.service.js"
 );
 
 const LONG_TEXT = "Acme CRM helps sales teams track deals and contacts. ".repeat(10);

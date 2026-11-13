@@ -1,4 +1,4 @@
-import prisma from "./config/prisma.js";
+import prisma from "../../../src/config/prisma.js";
 
 async function main() {
   const product = await prisma.product.findFirst();

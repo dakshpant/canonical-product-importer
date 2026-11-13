@@ -1,11 +1,11 @@
 // Tests for applying a refresh proposal (the "never destroy good data" rules).
 // Pure logic only: no database, no network.
 //
-// Run: node --test src/test-proposal-review.js
+// Run: node --test tests/unit/proposal-review.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildProposalUpdate } from "./services/product/proposal-update.js";
+import { buildProposalUpdate } from "../../src/services/product/proposal-update.js";
 
 const proposed = {
   tagline: "New tagline",

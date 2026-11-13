@@ -1,7 +1,7 @@
 
 import { randomUUID } from "node:crypto";
-import prisma from "./config/prisma.js";
-import { persistExtractedProduct } from "./services/product/product.service.js";
+import prisma from "../../../src/config/prisma.js";
+import { persistExtractedProduct } from "../../../src/services/product/product.service.js";
 
 const unique = randomUUID().slice(0, 8);
 const url = `https://example.com/test-product-${unique}`;

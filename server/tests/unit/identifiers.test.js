@@ -1,10 +1,10 @@
 // Tests for app-generated identifiers (sku_id). No database: a fake lookup.
 //
-// Run: node --test src/test-identifiers.js
+// Run: node --test tests/unit/identifiers.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { SKU_PATTERN, generateSkuId, generateUniqueSkuId } from "./services/product/identifiers.js";
+import { SKU_PATTERN, generateSkuId, generateUniqueSkuId } from "../../src/services/product/identifiers.js";
 
 // Returns the given byte sequences in order, as crypto.randomBytes would.
 const fixedRandom = (...hexValues) => {

@@ -1,4 +1,4 @@
-import { fetchPage } from "./services/scraper/scraper.service.js";
+import { fetchPage } from "../../../src/services/scraper/scraper.service.js";
 
 async function main() {
   try {

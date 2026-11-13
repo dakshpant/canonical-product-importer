@@ -4,7 +4,7 @@ import {
   extractProductJsonLd,
   extractPageText,
   MAX_TEXT_LENGTH,
-} from "./services/scraper/html-extractor.service.js";
+} from "../../src/services/scraper/html-extractor.service.js";
 
 const html = `
 <html>

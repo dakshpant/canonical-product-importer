@@ -13,10 +13,11 @@
     "db:migrate:dev": "prisma migrate dev --config prisma7.config.ts",
     "db:status": "prisma migrate status --config prisma7.config.ts",
     "db:reset": "prisma migrate reset --config prisma7.config.ts",
-    "setup": "node -e \"require('fs').existsSync('.env')||require('fs').copyFileSync('.env.example','.env')\" && npm run db:migrate",
+    "setup": "node -e \"require('fs').existsSync('.env')||require('fs').copyFileSync('.env.example','.env')\" && npm run db:migrate && npm run seed",
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test src/test-ai-extraction.js src/test-proposal-review.js src/test-product-update.js src/test-recorded-client.js src/test-identifiers.js"
+    "test": "node --experimental-test-module-mocks --test \"tests/unit/*.test.js\"",
+    "seed": "node prisma/seed.js"
   },
   "keywords": [],
   "author": "",

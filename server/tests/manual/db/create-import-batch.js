@@ -1,5 +1,5 @@
-import prisma from "./config/prisma.js";
-import { createImportBatch } from "./services/product/import.service.js";
+import prisma from "../../../src/config/prisma.js";
+import { createImportBatch } from "../../../src/services/product/import.service.js";
 
 async function main() {
   const urls = [

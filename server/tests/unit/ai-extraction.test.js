@@ -1,12 +1,12 @@
 // Tests for the AI extraction layer. No network, no API key, no database:
 // the Groq client and fetch are replaced with deterministic fakes.
 //
-// Run: node --test src/test-ai-extraction.js
+// Run: node --test tests/unit/ai-extraction.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { GROQ_MODEL } from "./config/env.js";
-import { buildProductExtractionInput } from "./services/scraper/product-extraction-input.service.js";
+import { GROQ_MODEL } from "../../src/config/env.js";
+import { buildProductExtractionInput } from "../../src/services/scraper/product-extraction-input.service.js";
 import {
   AI_ERROR,
   AiExtractionError,
@@ -14,14 +14,14 @@ import {
   buildExtractionMessages,
   createGroqClient,
   extractProduct,
-} from "./services/ai/extraction.service.js";
+} from "../../src/services/ai/extraction.service.js";
 import {
   LIST_FIELDS,
   PRODUCT_EXTRACTION_FIELDS,
   productExtractionJsonSchema,
   validateProductExtraction,
   AI_PRODUCT_EXTRACTION_FIELDS,
-} from "./validators/product-extraction.validator.js";
+} from "../../src/validators/product-extraction.validator.js";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -361,7 +361,7 @@ test("list labels are matched case-insensitively and stored as the list writes t
 });
 
 test("keywordPattern: whole words, plurals, ALL-CAPS keywords only in capitals", async () => {
-  const { keywordPattern } = await import("./services/ai/extraction.service.js");
+  const { keywordPattern } = await import("../../src/services/ai/extraction.service.js");
   const found = (keyword, text) => keywordPattern(keyword).test(text);
 
   assert.equal(found("payment", "Accept payments online"), true, "plural");
@@ -382,9 +382,9 @@ test("a feature name containing 'cloud' does not prove a Cloud deployment", asyn
     "Cloud",
   ]);
 
-  const { TAXONOMY } = await import("./constants/taxonomy.js");
+  const { TAXONOMY } = await import("../../src/constants/taxonomy.js");
   const cloud = TAXONOMY.deployments.find((e) => e.value === "Cloud");
-  const { keywordPattern } = await import("./services/ai/extraction.service.js");
+  const { keywordPattern } = await import("../../src/services/ai/extraction.service.js");
   assert.equal(cloud.labelIsKeyword, false);
   const supports = (text) =>
     cloud.keywords.some((k) => keywordPattern(k).test(text));
@@ -856,6 +856,20 @@ test("a normal-size request is sent once with all its page text", async () => {
   assert.equal(result.data.extraction.page_text_scale, 1);
 });
 
+test("an over-long quote is cut, not a reason to reject the whole answer", async () => {
+  const output = goodOutput();
+  const nameSource = output.sources.find((s) => s.field_name === "name");
+  nameSource.evidence_text = `Acme CRM ${"x".repeat(1500)}`;
+
+  assert.equal(validateProductExtraction(output).success, true);
+  const parsed = validateProductExtraction(output).data;
+  assert.equal(parsed.sources.find((s) => s.field_name === "name").evidence_text.length, 1000);
+
+  // The value is still verified against the page as normal.
+  const result = await run(fakeClient(output));
+  assert.equal(result.data.product.name, "Acme CRM");
+});
+
 test("key: value style quotes from metadata / JSON-LD are accepted", async () => {
   const output = goodOutput();
   output.sources.find((s) => s.field_name === "name").evidence_text =
@@ -1005,7 +1019,7 @@ test("classification values must be mentioned by their evidence", async () => {
 });
 
 test("copyPattern: exact excerpts on word boundaries only, no word forms", async () => {
-  const { copyPattern } = await import("./services/ai/extraction.service.js");
+  const { copyPattern } = await import("../../src/services/ai/extraction.service.js");
   const copied = (value, text) => copyPattern(value).test(text);
 
   assert.equal(copied("Small businesses", "platform for small businesses"), true);
