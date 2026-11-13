@@ -16,7 +16,7 @@ import {
   validateProductExtraction,
 } from "../../validators/product-extraction.validator.js";
 import { AI_ERROR, AiExtractionError } from "./errors.js";
-import { createGroqClient } from "./groq.client.js";
+import { createLlmClient } from "./recorded.client.js";
 import { METADATA_KEYS } from "./text-match.js";
 import { verifyExtraction } from "./verify-extraction.js";
 
@@ -178,9 +178,11 @@ async function requestValidOutput(client, messages, sleep) {
  * Throws AiExtractionError (with a `code`) on failure.
  *
  * options.client: { model, complete(messages) } — inject a fake in tests.
+ * Otherwise the client is chosen by LLM_MODE (live Groq, record or replay;
+ * see recorded.client.js). Recordings are keyed on the URL the admin pasted.
  */
 export async function extractProduct(input, _record, options = {}) {
-  const client = options.client ?? createGroqClient();
+  const client = options.client ?? createLlmClient(input.requestedUrl ?? input.url);
   const sleep = options.sleep ?? defaultSleep;
 
   const proposed = await requestValidOutput(client, buildExtractionMessages(input), sleep);

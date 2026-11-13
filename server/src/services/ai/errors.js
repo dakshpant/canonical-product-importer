@@ -11,6 +11,7 @@ export const AI_ERROR = {
   LLM_INVALID_JSON: "LLM_INVALID_JSON",
   LLM_INVALID_OUTPUT: "LLM_INVALID_OUTPUT",
   NO_PRODUCT_DATA: "NO_PRODUCT_DATA",
+  NO_RECORDING: "NO_RECORDING",
 };
 
 export class AiExtractionError extends Error {

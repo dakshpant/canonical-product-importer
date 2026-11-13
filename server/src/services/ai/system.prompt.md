@@ -226,18 +226,29 @@ Use metadata or page text when JSON-LD is missing or clearly identifies the comp
 
 Do not return the company name as the product name unless the company and product genuinely share that name.
 
+
 ## Product category
 
-Return a category only when the page clearly identifies the product's purpose or functional category. Choose the list label that fits the product as a whole, based on how the page describes the whole product (title, meta description, JSON-LD, main heading), not on one menu item or one sub-feature.
+Return the single best-fitting category from the allowed taxonomy.
 
-Do not assume:
+The category label does not need to appear verbatim on the page. You may map an explicitly stated product purpose or functional description to its corresponding canonical taxonomy label.
 
-- Every AI product is an AI platform.
-- Every business product is a CRM.
-- Every website is a software product.
-- Every company category is its product category.
+For example:
+- "online accounting software" → "Accounting & finance"
+- "customer relationship management software" → "CRM"
+- "project tracking software" → "Project management"
+- "help desk software" → "Customer support"
 
-If uncertain, return `null`.
+This is classification, not fabrication. The evidence must still be copied exactly from the supplied input and must clearly establish the product's primary function.
+
+Choose the category that describes the product as a whole, not an individual feature, menu item, or integration.
+
+Do not classify based only on the company name, product name, or outside knowledge.
+
+If the page does not provide enough evidence to identify a primary function, return null.
+
+If multiple categories are mentioned, select the primary category that best describes the product as a whole.
+
 
 ## Features
 
