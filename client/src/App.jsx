@@ -1,17 +1,24 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { Navigate, Route, Routes } from 'react-router'
 
-function App() {
-  const [count, setCount] = useState(0)
+import Layout from './components/layout/Layout.jsx'
+import ImportPage from './pages/ImportPage.jsx'
+import ImportSummaryPage from './pages/ImportSummaryPage.jsx'
+import ImportsPage from './pages/ImportsPage.jsx'
+import ProductReviewPage from './pages/ProductReviewPage.jsx'
+import ProductsPage from './pages/ProductsPage.jsx'
 
+export default function App() {
   return (
-    <>
-      <h1>Hwlloo</h1>
-    </>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Navigate to="/products" replace />} />
+        <Route path="import" element={<ImportPage />} />
+        <Route path="imports" element={<ImportsPage />} />
+        <Route path="imports/:batchId" element={<ImportSummaryPage />} />
+        <Route path="products" element={<ProductsPage />} />
+        <Route path="products/:productId" element={<ProductReviewPage />} />
+        <Route path="*" element={<Navigate to="/products" replace />} />
+      </Route>
+    </Routes>
   )
 }
-
-export default App
